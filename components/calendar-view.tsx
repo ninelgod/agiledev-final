@@ -300,7 +300,7 @@ export function CalendarView({ userId }: CalendarViewProps) {
           </CardTitle>
           <div className="flex gap-2">
             <Select value={selectedMonth.toString()} onValueChange={handleMonthChange}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-30">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -315,11 +315,11 @@ export function CalendarView({ userId }: CalendarViewProps) {
               </SelectContent>
             </Select>
             <Select value={selectedYear.toString()} onValueChange={handleYearChange}>
-              <SelectTrigger className="w-20">
+              <SelectTrigger className="w-22">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-              {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+              {Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
                 <SelectItem key={year} value={year.toString()}>
                   {year}
                 </SelectItem>
