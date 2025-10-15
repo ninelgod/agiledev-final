@@ -41,12 +41,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       userId,
+      loanCode,
       bankName,
       loanType,
       totalAmount,
       installmentAmount,
       numberOfInstallments,
       paymentType,
+      interestRate,
       startDate,
       endDate,
     } = body
@@ -77,10 +79,13 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Creando préstamo con", numberOfInstallments, "cuotas")
 
+    // Calcular el total final (monto original + interés)
+    const finalTotalAmount = totalAmount * (1 + interestRate / 100)
+
     // Crear el préstamo
     const loanResult = await sql`
-      INSERT INTO loans (user_id, bank_name, loan_type, total_amount, monthly_payment, payment_type, start_date, end_date, is_active)
-      VALUES (${Number.parseInt(userId)}, ${bankName}, ${loanType}, ${totalAmount}, ${installmentAmount}, ${paymentType}, ${startDate}, ${endDate}, true)
+      INSERT INTO loans (user_id, loan_code, bank_name, loan_type, total_amount, final_total_amount, monthly_payment, payment_type, interest_rate, start_date, end_date, is_active)
+      VALUES (${Number.parseInt(userId)}, ${loanCode}, ${bankName}, ${loanType}, ${totalAmount}, ${finalTotalAmount}, ${installmentAmount}, ${paymentType}, ${interestRate}, ${startDate}, ${endDate}, true)
       RETURNING *
     `
 

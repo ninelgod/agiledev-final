@@ -25,6 +25,7 @@ export function AddLoanForm() {
   const [success, setSuccess] = useState(false)
 
   const [formData, setFormData] = useState({
+    loanCode: "",
     bankName: "",
     loanType: "",
     totalAmount: "",
@@ -32,6 +33,7 @@ export function AddLoanForm() {
     installmentAmount: "",
     paymentType: "",
     paymentFrequency: "",
+    interestRate: "",
     startDate: "",
     endDate: "",
   })
@@ -74,12 +76,33 @@ export function AddLoanForm() {
           return
         }
 
-        // Formatear la fecha para el input
-        const endDateStr = lastPaymentDate.toISOString().split("T")[0]
-        setFormData((prev) => ({ ...prev, endDate: endDateStr }))
+        // Validar que la fecha sea válida antes de formatear
+        if (!isNaN(lastPaymentDate.getTime())) {
+          // Formatear la fecha para el input
+          const endDateStr = lastPaymentDate.toISOString().split("T")[0]
+          setFormData((prev) => ({ ...prev, endDate: endDateStr }))
+        }
       }
     }
   }, [formData.startDate, formData.numberOfInstallments, formData.paymentType, formData.paymentFrequency])
+
+  // Calcular automáticamente el monto por cuota cuando cambian el monto total, número de cuotas o tasa de interés
+  useEffect(() => {
+    const totalAmount = Number.parseFloat(formData.totalAmount)
+    const numberOfInstallments = Number.parseInt(formData.numberOfInstallments)
+    const interestRate = Number.parseFloat(formData.interestRate) || 0
+
+    if (totalAmount > 0 && numberOfInstallments > 0) {
+      // Calcular el monto total con interés
+      const totalWithInterest = totalAmount * (1 + interestRate / 100)
+      const installmentAmount = totalWithInterest / numberOfInstallments
+
+      setFormData((prev) => ({
+        ...prev,
+        installmentAmount: installmentAmount.toFixed(2)
+      }))
+    }
+  }, [formData.totalAmount, formData.numberOfInstallments, formData.interestRate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -89,23 +112,25 @@ export function AddLoanForm() {
       [name]: value,
     })
 
-    if (name === "numberOfInstallments" || name === "installmentAmount" || name === "totalAmount") {
-      const updatedData = { ...formData, [name]: value }
-      const total = Number.parseFloat(updatedData.totalAmount) || 0
-      const installments = Number.parseInt(updatedData.numberOfInstallments) || 0
-      const installmentAmount = Number.parseFloat(updatedData.installmentAmount) || 0
+    // Validar la consistencia entre monto total final, número de cuotas y monto por cuota
+    setTimeout(() => {
+      const capital = Number.parseFloat(formData.totalAmount) || 0
+      const installments = Number.parseInt(formData.numberOfInstallments) || 0
+      const installmentAmount = Number.parseFloat(formData.installmentAmount) || 0
+      const interestRate = Number.parseFloat(formData.interestRate) || 0
 
-      if (installments > 0 && installmentAmount > 0) {
+      if (capital > 0 && installments > 0 && installmentAmount > 0) {
+        const finalTotal = capital * (1 + interestRate / 100)
         const calculatedTotal = installments * installmentAmount
-        if (Math.abs(calculatedTotal - total) > 0.01 && total > 0) {
+        if (Math.abs(calculatedTotal - finalTotal) > 0.1) { // Aumentar tolerancia a 0.1 para evitar errores de redondeo
           setError(
-            `El número de cuotas (${installments}) multiplicado por el monto de cada cuota (S/ ${installmentAmount.toFixed(2)}) debe ser igual al monto total (S/ ${total.toFixed(2)}). Actualmente: S/ ${calculatedTotal.toFixed(2)}`,
+            `El número de cuotas (${installments}) multiplicado por el monto de cada cuota (S/ ${installmentAmount.toFixed(2)}) debe ser igual al total final del préstamo (S/ ${finalTotal.toFixed(2)}). Actualmente: S/ ${calculatedTotal.toFixed(2)}`,
           )
-        } else if (error.includes("número de cuotas")) {
+        } else if (error && error.includes("número de cuotas")) {
           setError("")
         }
       }
-    }
+    }, 0)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,6 +160,13 @@ export function AddLoanForm() {
       return
     }
 
+    const interestRateValue = Number.parseFloat(formData.interestRate) || 0
+    if (interestRateValue < 0 || interestRateValue > 100) {
+      setError("La tasa de interés debe estar entre 0% y 100%")
+      setIsLoading(false)
+      return
+    }
+
     const startDate = new Date(formData.startDate)
     const endDate = new Date(formData.endDate)
 
@@ -147,11 +179,15 @@ export function AddLoanForm() {
     const total = Number.parseFloat(formData.totalAmount)
     const installments = Number.parseInt(formData.numberOfInstallments)
     const installmentAmount = Number.parseFloat(formData.installmentAmount)
+    const interestRate = Number.parseFloat(formData.interestRate) || 0
+
+    // Calcular el total final esperado (monto original + interés)
+    const finalTotalAmount = total * (1 + interestRate / 100)
     const calculatedTotal = installments * installmentAmount
 
-    if (Math.abs(calculatedTotal - total) > 0.01) {
+    if (Math.abs(calculatedTotal - finalTotalAmount) > 0.1) {
       setError(
-        `El número de cuotas (${installments}) multiplicado por el monto de cada cuota (S/ ${installmentAmount.toFixed(2)}) debe ser igual al monto total (S/ ${total.toFixed(2)})`,
+        `El número de cuotas (${installments}) multiplicado por el monto de cada cuota (S/ ${installmentAmount.toFixed(2)}) debe ser igual al total final del préstamo (S/ ${finalTotalAmount.toFixed(2)}). Actualmente: S/ ${calculatedTotal.toFixed(2)}`,
       )
       setIsLoading(false)
       return
@@ -171,6 +207,7 @@ export function AddLoanForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
+          loanCode: formData.loanCode,
           bankName: formData.bankName,
           loanType: formData.loanType,
           totalAmount: total,
@@ -178,6 +215,7 @@ export function AddLoanForm() {
           numberOfInstallments: installments,
           installmentAmount: installmentAmount, // Agregar este campo también
           paymentType: paymentType,
+          interestRate: interestRateValue,
           startDate: formData.startDate,
           endDate: formData.endDate,
         }),
@@ -216,6 +254,19 @@ export function AddLoanForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="loanCode">Código del Préstamo</Label>
+            <Input
+              id="loanCode"
+              name="loanCode"
+              type="text"
+              placeholder="Ej: PREST-001"
+              value={formData.loanCode}
+              onChange={handleChange}
+              disabled={isLoading}
+            />
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="bankName">Nombre del Banco</Label>
@@ -246,22 +297,22 @@ export function AddLoanForm() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="totalAmount">Monto Total del Préstamo (S/)</Label>
-            <Input
-              id="totalAmount"
-              name="totalAmount"
-              type="number"
-              step="0.01"
-              placeholder="50000.00"
-              value={formData.totalAmount}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-            />
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="totalAmount">Monto del Préstamo (Capital) (S/)</Label>
+              <Input
+                id="totalAmount"
+                name="totalAmount"
+                type="number"
+                step="0.01"
+                placeholder="50000.00"
+                value={formData.totalAmount}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="numberOfInstallments">Número de Cuotas</Label>
               <Input
@@ -273,6 +324,24 @@ export function AddLoanForm() {
                 value={formData.numberOfInstallments}
                 onChange={handleChange}
                 required
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="interestRate">Tasa de Interés (%)</Label>
+              <Input
+                id="interestRate"
+                name="interestRate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                placeholder="10.00"
+                value={formData.interestRate}
+                onChange={handleChange}
                 disabled={isLoading}
               />
             </div>
@@ -290,8 +359,39 @@ export function AddLoanForm() {
                 required
                 disabled={isLoading}
               />
+              <p className="text-xs text-muted-foreground">Se calcula automáticamente</p>
             </div>
           </div>
+
+          {formData.totalAmount && formData.interestRate && formData.numberOfInstallments && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <h4 className="font-semibold text-sm mb-2">Resumen del Préstamo</h4>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Monto del préstamo (capital):</span>
+                  <span>S/ {Number.parseFloat(formData.totalAmount).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tasa de interés ({formData.interestRate}%):</span>
+                  <span>S/ {(Number.parseFloat(formData.totalAmount) * Number.parseFloat(formData.interestRate) / 100).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-semibold border-t pt-2">
+                  <span>Total del préstamo (con interés):</span>
+                  <span>S/ {(Number.parseFloat(formData.totalAmount) * (1 + Number.parseFloat(formData.interestRate) / 100)).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Número de cuotas:</span>
+                  <span>{formData.numberOfInstallments}</span>
+                </div>
+                {formData.installmentAmount && (
+                  <div className="flex justify-between">
+                    <span>Monto por cuota:</span>
+                    <span>S/ {Number.parseFloat(formData.installmentAmount).toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="paymentType">Tipo de Pago</Label>

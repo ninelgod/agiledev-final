@@ -170,7 +170,9 @@ export function CalendarView({ userId }: CalendarViewProps) {
               loan: {
                 id: loan.id,
                 bankName: loan.bank_name,
-                loanType: loan.loan_type
+                loanType: loan.loan_type,
+                monthlyPayment: loan.monthly_payment,
+                totalAmount: loan.total_amount
               }
             })
 
@@ -362,13 +364,23 @@ export function CalendarView({ userId }: CalendarViewProps) {
                 <div>
                   <p className="font-medium">{inst.loan.bankName}</p>
                   <p className="text-sm text-muted-foreground">{inst.loan.loanType}</p>
-                  <p className="text-sm text-muted-foreground">Cuota #{inst.id.split('-')[1]}</p>
+                  <p className="text-sm text-muted-foreground">Cuota mensual: S/ {Number(inst.loan.monthlyPayment)?.toFixed(2) || '0.00'}</p>
+                  <p className="text-sm text-muted-foreground">Total: S/ {Number(inst.loan.totalAmount)?.toFixed(2) || '0.00'}</p>
                 </div>
                 <Badge variant={inst.status === 'Pagado' ? 'secondary' : inst.status === 'Vencido' ? 'destructive' : 'default'}>
                   {inst.status}
                 </Badge>
               </div>
             ))}
+            {selectedDay && getInstallmentsForDay(selectedDay).length > 0 && (
+              <div className="flex justify-end pt-4 border-t">
+                <div className="text-right">
+                  <p className="text-lg font-semibold">
+                    Total de pago: S/ {getInstallmentsForDay(selectedDay).reduce((sum, inst) => sum + (Number(inst.loan.monthlyPayment) || 0), 0).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
             {selectedDay && getInstallmentsForDay(selectedDay).length === 0 && (
               <p className="text-center text-muted-foreground py-4">No hay cuotas programadas para este día</p>
             )}

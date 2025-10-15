@@ -36,11 +36,14 @@ import { CalendarView } from "@/components/calendar-view"
 
 interface Loan {
   id: number
+  loan_code?: string
   bank_name: string
   loan_type: string
   total_amount: number
+  final_total_amount: number
   monthly_payment: number
   payment_type: string
+  interest_rate?: number
   start_date: string
   end_date: string
   is_active: boolean
@@ -631,6 +634,11 @@ export function DashboardContent() {
                         >
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
+                              {loan.loan_code && (
+                                <span className="text-sm font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                                  {loan.loan_code}
+                                </span>
+                              )}
                               <h3 className="font-semibold text-lg">{loan.bank_name}</h3>
                               {getStatusBadge(loan)}
                             </div>
@@ -640,10 +648,10 @@ export function DashboardContent() {
                                 <strong>Cuota mensual:</strong> {formatCurrency(loan.monthly_payment)}
                               </span>
                               <span>
-                                <strong>Tipo de pago:</strong> {loan.payment_type}
+                                <strong>Tipo de pago:</strong> {loan.payment_type.includes('Plazo fijo') ? 'Plazo fijo' : 'De acuerdo a días'}
                               </span>
                               <span>
-                                <strong>Total:</strong> {formatCurrency(loan.total_amount)}
+                                <strong>Total:</strong> {formatCurrency(loan.final_total_amount)}
                               </span>
                             </div>
                           </div>
