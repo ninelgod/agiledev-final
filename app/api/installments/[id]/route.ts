@@ -1,5 +1,6 @@
+
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -7,38 +8,29 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const { isPaid, lateFee, notes } = body
     const installmentId = Number.parseInt(params.id)
 
-    // Construir la consulta de actualización dinámicamente
-    const updates: string[] = []
-    const values: any[] = []
+    const dataToUpdate: any = {}
 
     if (isPaid !== undefined) {
-      updates.push(`is_paid = ${isPaid}`)
-      updates.push(`paid_date = ${isPaid ? "CURRENT_DATE" : "NULL"}`)
+      dataToUpdate.isPaid = isPaid
+      dataToUpdate.paidDate = isPaid ? new Date() : null
     }
 
     if (lateFee !== undefined) {
-      updates.push(`late_fee = ${lateFee}`)
+      dataToUpdate.lateFee = Number(lateFee)
     }
 
     if (notes !== undefined) {
-      values.push(notes)
-      updates.push(`notes = $${values.length}`)
+      dataToUpdate.notes = notes
     }
 
-    if (updates.length === 0) {
-      return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 })
-    }
-
-    const installment = await sql`
-      UPDATE installments
-      SET ${sql(updates.join(", "))}
-      WHERE id = ${installmentId}
-      RETURNING *
-    `
+    const installment = await prisma.installment.update({
+      where: { id: installmentId },
+      data: dataToUpdate
+    })
 
     console.log("[v0] Cuota actualizada:", installmentId, { isPaid, lateFee, notes })
 
-    return NextResponse.json({ installment: installment[0] })
+    return NextResponse.json({ installment })
   } catch (error) {
     console.error("Error updating installment:", error)
     return NextResponse.json({ error: "Error al actualizar cuota" }, { status: 500 })

@@ -246,45 +246,45 @@ export function LoginForm() {
               </Button>
             </div>
             <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="resetCode">Código de Verificación</Label>
-              <Input
-                id="resetCode"
-                type="text"
-                placeholder="123456"
-                value={resetCode}
-                onChange={(e) => setResetCode(e.target.value)}
-                required
+              <div className="space-y-2">
+                <Label htmlFor="resetCode">Código de Verificación</Label>
+                <Input
+                  id="resetCode"
+                  type="text"
+                  placeholder="123456"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  required
+                  disabled={resetLoading}
+                  maxLength={6}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Te quedan {attemptsLeft} intentos
+                </p>
+              </div>
+              {resetError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{resetError}</AlertDescription>
+                </Alert>
+              )}
+              {resetSuccess && (
+                <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
+                  <AlertDescription>{resetSuccess}</AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" className="w-full" disabled={resetLoading}>
+                {resetLoading ? "Verificando..." : "Verificar Código"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setResetStep('request')}
                 disabled={resetLoading}
-                maxLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Te quedan {attemptsLeft} intentos
-              </p>
-            </div>
-            {resetError && (
-              <Alert variant="destructive">
-                <AlertDescription>{resetError}</AlertDescription>
-              </Alert>
-            )}
-            {resetSuccess && (
-              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
-                <AlertDescription>{resetSuccess}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={resetLoading}>
-              {resetLoading ? "Verificando..." : "Verificar Código"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setResetStep('request')}
-              disabled={resetLoading}
-            >
-              Volver
-            </Button>
-          </form>
+              >
+                Volver
+              </Button>
+            </form>
           </>
         )}
 
@@ -300,36 +300,36 @@ export function LoginForm() {
               </Button>
             </div>
             <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="resetNewPassword">Nueva Contraseña</Label>
-              <Input
-                id="resetNewPassword"
-                type="password"
-                placeholder="••••••"
-                value={resetNewPassword}
-                onChange={(e) => setResetNewPassword(e.target.value)}
-                required
-                disabled={resetLoading}
-                minLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Mínimo 6 caracteres
-              </p>
-            </div>
-            {resetError && (
-              <Alert variant="destructive">
-                <AlertDescription>{resetError}</AlertDescription>
-              </Alert>
-            )}
-            {resetSuccess && (
-              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
-                <AlertDescription>{resetSuccess}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={resetLoading}>
-              {resetLoading ? "Cambiando..." : "Cambiar Contraseña"}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="resetNewPassword">Nueva Contraseña</Label>
+                <Input
+                  id="resetNewPassword"
+                  type="password"
+                  placeholder="••••••"
+                  value={resetNewPassword}
+                  onChange={(e) => setResetNewPassword(e.target.value)}
+                  required
+                  disabled={resetLoading}
+                  minLength={6}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Mínimo 6 caracteres
+                </p>
+              </div>
+              {resetError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{resetError}</AlertDescription>
+                </Alert>
+              )}
+              {resetSuccess && (
+                <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
+                  <AlertDescription>{resetSuccess}</AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" className="w-full" disabled={resetLoading}>
+                {resetLoading ? "Cambiando..." : "Cambiar Contraseña"}
+              </Button>
+            </form>
           </>
         )}
       </DialogContent>
@@ -386,6 +386,12 @@ export function LoginForm() {
         </form>
 
       </CardContent>
+      <div className="px-6 pb-6 text-center text-sm text-muted-foreground">
+        ¿No tienes una cuenta?{" "}
+        <a href="/register" className="font-semibold text-primary hover:underline">
+          Regístrate
+        </a>
+      </div>
       {resetPasswordDialog()}
     </Card>
   )

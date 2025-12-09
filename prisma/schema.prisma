@@ -12,6 +12,8 @@ model User {
   username             String   @unique @db.VarChar(255)
   email                String   @unique @db.VarChar(255)
   password             String   @db.VarChar(255)
+  phoneNumber          String?  @map("phone_number") @db.VarChar(20)
+  notificationsEnabled Boolean  @default(false) @map("notifications_enabled")
   failedLoginAttempts  Int      @default(0) @map("failed_login_attempts")
   loginBlockedUntil    DateTime? @map("login_blocked_until") @db.Timestamp(6)
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)

@@ -1,5 +1,6 @@
+
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,71 +13,70 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "userId es requerido" }, { status: 400 })
     }
 
-    let installments
+    let whereClause: any = {
+      loan: {
+        userId: Number(userId),
+        isActive: true
+      }
+    }
 
     if (month && year) {
       const monthNum = Number.parseInt(month)
       const yearNum = Number.parseInt(year)
-      const lastDay = new Date(yearNum, monthNum, 0).getDate()
+      // Correctly handle last day of month. 
+      // JS Month is 0-indexed for Date constructor but 1-based in common usage? 
+      // searchParams month usually (1-12).
+      // new Date(year, month, 0) gives last day of prev month in JS if month is 1-based index? 
+      // No, new Date(2023, 1, 0) -> Jan 31? Yes.
+      // If query month is 1 (Jan), we want Jan 1 to Jan 31.
+      // JS Date month is 0-11.
 
-      const startDate = `${year}-${String(month).padStart(2, "0")}-01`
-      const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
+      // Assuming frontend sends 1-12.
+      const startDate = new Date(yearNum, monthNum - 1, 1) // 00:00:00
+      const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59) // Last day of month
 
-      console.log("[v0] Buscando cuotas del mes", month, "año", year)
-      console.log("[v0] Rango:", startDate, "a", endDate)
-
-      installments = await sql`
-        SELECT
-          i.*,
-          CASE
-            WHEN i.is_paid = true THEN 'Pagado'
-            WHEN i.due_date < CURRENT_DATE THEN 'Vencido'
-            ELSE 'Pendiente'
-          END as status,
-          json_build_object(
-            'id', l.id,
-            'bankName', l.bank_name,
-            'loanType', l.loan_type
-          ) as loan
-        FROM installments i
-        JOIN loans l ON i.loan_id = l.id
-        WHERE l.user_id = ${Number.parseInt(userId)}
-          AND l.is_active = true
-          AND i.due_date >= ${startDate}
-          AND i.due_date <= ${endDate}
-        ORDER BY i.due_date ASC, l.bank_name ASC
-      `
-    } else {
-      installments = await sql`
-        SELECT
-          i.*,
-          CASE
-            WHEN i.is_paid = true THEN 'Pagado'
-            WHEN i.due_date < CURRENT_DATE THEN 'Vencido'
-            ELSE 'Pendiente'
-          END as status,
-          json_build_object(
-            'id', l.id,
-            'bankName', l.bank_name,
-            'loanType', l.loan_type
-          ) as loan
-        FROM installments i
-        JOIN loans l ON i.loan_id = l.id
-        WHERE l.user_id = ${Number.parseInt(userId)}
-          AND l.is_active = true
-        ORDER BY i.due_date ASC
-      `
+      whereClause = {
+        ...whereClause,
+        dueDate: {
+          gte: startDate,
+          lte: endDate
+        }
+      }
     }
+
+    const installments = await prisma.installment.findMany({
+      where: whereClause,
+      include: {
+        loan: {
+          select: {
+            id: true,
+            bankName: true,
+            loanType: true
+          }
+        }
+      },
+      orderBy: [
+        { dueDate: 'asc' },
+        { loan: { bankName: 'asc' } }
+      ]
+    })
+
+    // Map to include 'status' calculated field for frontend
+    const mappedInstallments = installments.map(i => {
+      let status = 'Pendiente'
+      if (i.isPaid) status = 'Pagado'
+      else if (new Date(i.dueDate) < new Date() && !i.isPaid) status = 'Vencido'
+
+      return {
+        ...i,
+        status,
+        loan: i.loan
+      }
+    })
 
     console.log("[v0] Cuotas encontradas:", installments.length)
-    if (installments.length > 0) {
-      console.log(
-        "[v0] Fechas de cuotas:",
-        installments.map((i: any) => i.due_date),
-      )
-    }
 
-    return NextResponse.json({ installments })
+    return NextResponse.json({ installments: mappedInstallments })
   } catch (error) {
     console.error("Error fetching installments:", error)
     return NextResponse.json({ error: "Error al obtener cuotas" }, { status: 500 })

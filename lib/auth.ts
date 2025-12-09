@@ -1,4 +1,5 @@
-import { sql } from "./db"
+
+import { prisma } from "./prisma"
 import bcrypt from 'bcryptjs'
 
 export interface User {
@@ -9,43 +10,36 @@ export interface User {
 
 export async function validateUser(username: string, password: string): Promise<User | null> {
   try {
-    const result = await sql`
-      SELECT id, username, password, email, failed_login_attempts, login_blocked_until
-      FROM users
-      WHERE username = ${username}
-      LIMIT 1
-    `
+    const user = await prisma.user.findUnique({
+      where: { username }
+    })
 
-    if (result.length === 0) {
+    if (!user) {
       return null
     }
-
-    const user = result[0]
 
     const isValidPassword = await bcrypt.compare(password, user.password)
 
     if (!isValidPassword) {
       // Incrementar contador de intentos fallidos
-      const newAttempts = user.failed_login_attempts + 1
-      const clientIP = 'unknown' // En un entorno real, obtendrías la IP del request
+      const newAttempts = user.failedLoginAttempts + 1
 
-      await sql`
-        UPDATE users
-        SET failed_login_attempts = ${newAttempts}
-        WHERE id = ${user.id}
-      `
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: newAttempts }
+      })
+
       const remainingAttempts = 3 - newAttempts
-      console.log(`[SECURITY] Intento fallido de login para: ${username}, IP: ${clientIP}, intentos restantes: ${remainingAttempts}`)
+      console.log(`[SECURITY] Intento fallido de login para: ${username}, intentos restantes: ${remainingAttempts}`)
       throw new Error(`Contraseña incorrecta. Te quedan ${remainingAttempts} intentos.`)
     }
 
     // Resetear contador de intentos fallidos en login exitoso
-    if (user.failed_login_attempts > 0) {
-      await sql`
-        UPDATE users
-        SET failed_login_attempts = 0, login_blocked_until = NULL
-        WHERE id = ${user.id}
-      `
+    if (user.failedLoginAttempts > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, loginBlockedUntil: null }
+      })
     }
 
     return {

@@ -34,56 +34,39 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-interface Loan {
+interface Installment {
   id: number
-  bank_name: string
-  loan_type: string
-  total_amount: number
-  monthly_payment: number
-  payment_type: string
-  start_date: string
-  end_date: string
-  is_active: boolean
+  dueDate: string | Date
+  isPaid: boolean
+  status?: string
+  amount: number
+  loan?: {
+    bankName: string
+    loanType: string
+    monthlyPayment: number
+    totalAmount: number
+  }
 }
 
 interface CalendarViewProps {
-  userId: number
+  installments: Installment[]
 }
 
-export function CalendarView({ userId }: CalendarViewProps) {
+export function CalendarView({ installments }: CalendarViewProps) {
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [loans, setLoans] = useState<Loan[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth())
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear())
 
-  useEffect(() => {
-    loadLoans()
-  }, [userId])
-
-  const loadLoans = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch(`/api/loans?userId=${userId}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || "Error al cargar préstamos")
-        setIsLoading(false)
-        return
-      }
-
-      console.log("[v0] Préstamos cargados para calendario:", data.loans.length)
-      setLoans(data.loans)
-      setIsLoading(false)
-    } catch (err) {
-      setError("Error de conexión")
-      setIsLoading(false)
-    }
+  // Helper to normalize date comparison (ignore time)
+  const isSameDay = (date1: Date, date2: Date) => {
+    return (
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear()
+    )
   }
 
   const getDaysInMonth = (date: Date) => {
@@ -95,98 +78,33 @@ export function CalendarView({ userId }: CalendarViewProps) {
   }
 
   const getInstallmentsForDay = (day: number) => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth() + 1 // 1-based for string
-    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+    const targetDate = new Date(selectedYear, selectedMonth, day)
 
-    console.log(`[v0] Buscando cuotas para día ${day}, fecha objetivo: ${dateStr}`)
+    return installments.filter(inst => {
+      const instDate = new Date(inst.dueDate)
+      // Fix timezone/offset issues by comparing local dates components
+      // Using helper isSameDay
+      // Note: inst.dueDate from API might be UTC string.
+      // Assuming naive date for simplicity or proper parsing?
+      // "2023-01-15T00:00:00.000Z" -> new Date() handles it.
+      // But we need to match "Day X of Month Y".
+      // Let's use isSameDay logic dealing with timezone offsets carefully?
+      // Actually, if we just want "Day" match, let's trust the components.
 
-    const installments: any[] = []
+      // Handle "off by one" due to timezone? 
+      // safer: instDate.getUTCDate() vs day? 
+      // DashboardContent uses local date formatting.
+      // Let's try simple match first.
 
-    // Generar cuotas basadas en los préstamos y su tipo de pago
-    loans.forEach((loan) => {
-      const startDate = new Date(loan.start_date)
-      const endDate = new Date(loan.end_date)
-      const currentMonth = new Date(year, month - 1, day)
+      // Simple offset adjustment just in case
+      const adjustedInstDate = new Date(instDate.getTime() + instDate.getTimezoneOffset() * 60000)
 
-      // Verificar si estamos dentro del rango del préstamo
-      if (currentMonth >= startDate && currentMonth <= endDate) {
-        // Parsear el día de pago del payment_type
-        let dueDay: number;
-        if (typeof loan.payment_type === 'string') {
-          if (loan.payment_type.includes('Plazo fijo')) {
-            // Extraer el día del string "Plazo fijo (día X)"
-            const match = loan.payment_type.match(/día (\d+)/);
-            dueDay = match ? parseInt(match[1]) : 15;
-          } else if (loan.payment_type.includes('Plazo de acuerdo a días')) {
-            // Para pagos cada X días, calcular dinámicamente basado en la fecha de inicio
-            const startDate = new Date(loan.start_date);
-            const daysInterval = parseInt(loan.payment_type.match(/cada (\d+) días/)?.[1] || "30");
-
-            // Calcular cuántos intervalos han pasado desde la fecha de inicio
-            const currentDate = new Date(year, month - 1, day);
-            const daysDiff = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-            const intervalsPassed = Math.floor(daysDiff / daysInterval);
-
-            // Calcular la fecha de pago esperada
-            const expectedPaymentDate = new Date(startDate);
-            expectedPaymentDate.setDate(startDate.getDate() + intervalsPassed * daysInterval);
-
-            // Si coincide con el día actual, marcar como día de pago
-            dueDay = expectedPaymentDate.getDate();
-          } else if (loan.payment_type === 'Fin de mes') {
-            // Para fin de mes, el día de pago es el último día del mes
-            dueDay = new Date(year, month, 0).getDate(); // Último día del mes
-          } else {
-            // Fallback: extraer número del string
-            dueDay = parseInt(loan.payment_type.match(/\d+/)?.[0] || "15");
-          }
-        } else {
-          // Si es número, usar directamente
-          dueDay = loan.payment_type;
-        }
-
-        // Verificar si el día coincide con el día de pago del préstamo
-        if (day === dueDay) {
-          // Calcular el número de cuota basado en la fecha
-          const monthsDiff = (year - startDate.getFullYear()) * 12 + (month - 1 - startDate.getMonth())
-          const installmentNumber = monthsDiff + 1
-
-          // Solo incluir si es una cuota válida (no antes del inicio)
-          if (installmentNumber >= 1) {
-            const dueDate = new Date(year, month - 1, day)
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            dueDate.setHours(0, 0, 0, 0)
-
-            let status = 'Pendiente'
-            if (dueDate < today) {
-              status = 'Vencido'
-            }
-
-            installments.push({
-              id: `${loan.id}-${installmentNumber}`, // ID único
-              loan_id: loan.id,
-              due_date: dateStr,
-              is_paid: false, // Por ahora asumimos no pagado
-              status: status,
-              loan: {
-                id: loan.id,
-                bankName: loan.bank_name,
-                loanType: loan.loan_type,
-                monthlyPayment: loan.monthly_payment,
-                totalAmount: loan.total_amount
-              }
-            })
-
-            console.log(`[v0] ✓ Día ${day} tiene cuota: ${loan.bank_name} - ${status} (Cuota #${installmentNumber})`)
-          }
-        }
-      }
+      return (
+        adjustedInstDate.getDate() === day &&
+        adjustedInstDate.getMonth() === selectedMonth &&
+        adjustedInstDate.getFullYear() === selectedYear
+      )
     })
-
-    console.log(`[v0] Día ${day} tiene ${installments.length} cuotas`)
-    return installments
   }
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -249,7 +167,7 @@ export function CalendarView({ userId }: CalendarViewProps) {
                   variant={inst.status === 'Pagado' ? 'secondary' : inst.status === 'Vencido' ? 'destructive' : 'default'}
                   className="text-xs px-1 py-0 truncate block"
                 >
-                  {inst.loan.bankName}
+                  {inst.loan?.bankName || 'Préstamo'}
                 </Badge>
               ))}
               {dayInstallments.length > 2 && (
@@ -276,23 +194,20 @@ export function CalendarView({ userId }: CalendarViewProps) {
 
     if (isToday) {
       baseClass += " bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700"
+    } else if (dayInstallments.some(i => !i.isPaid)) {
+      // As requested: Yellow for unpaid (pending)
+      // Check if any is 'Overdue' (Vencido) to prefer Red?
+      if (dayInstallments.some(i => i.status === 'Vencido')) {
+        baseClass += " bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+      } else {
+        baseClass += " bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+      }
     }
 
     return baseClass
   }
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Calendario de Pagos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">Cargando calendario...</div>
-        </CardContent>
-      </Card>
-    )
-  }
+
 
   return (
     <Card>
@@ -322,11 +237,11 @@ export function CalendarView({ userId }: CalendarViewProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-              {Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
+                {Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -365,10 +280,10 @@ export function CalendarView({ userId }: CalendarViewProps) {
             {selectedDay && getInstallmentsForDay(selectedDay).map((inst) => (
               <div key={inst.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium">{inst.loan.bankName}</p>
-                  <p className="text-sm text-muted-foreground">{inst.loan.loanType}</p>
-                  <p className="text-sm text-muted-foreground">Cuota mensual: S/ {Number(inst.loan.monthlyPayment)?.toFixed(2) || '0.00'}</p>
-                  <p className="text-sm text-muted-foreground">Total: S/ {Number(inst.loan.totalAmount)?.toFixed(2) || '0.00'}</p>
+                  <p className="font-medium">{inst.loan?.bankName || 'Unknown Bank'}</p>
+                  <p className="text-sm text-muted-foreground">{inst.loan?.loanType || 'Type'}</p>
+                  <p className="text-sm text-muted-foreground">Cuota mensual: S/ {Number(inst.loan?.monthlyPayment)?.toFixed(2) || '0.00'}</p>
+                  <p className="text-sm text-muted-foreground">Total: S/ {Number(inst.loan?.totalAmount)?.toFixed(2) || '0.00'}</p>
                 </div>
                 <Badge variant={inst.status === 'Pagado' ? 'secondary' : inst.status === 'Vencido' ? 'destructive' : 'default'}>
                   {inst.status}
@@ -379,7 +294,7 @@ export function CalendarView({ userId }: CalendarViewProps) {
               <div className="flex justify-end pt-4 border-t">
                 <div className="text-right">
                   <p className="text-lg font-semibold">
-                    Total de pago: S/ {getInstallmentsForDay(selectedDay).reduce((sum, inst) => sum + (Number(inst.loan.monthlyPayment) || 0), 0).toFixed(2)}
+                    Total de pago: S/ {getInstallmentsForDay(selectedDay).reduce((sum, inst) => sum + (Number(inst.loan?.monthlyPayment) || 0), 0).toFixed(2)}
                   </p>
                 </div>
               </div>

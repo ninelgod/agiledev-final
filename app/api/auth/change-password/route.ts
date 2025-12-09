@@ -1,6 +1,7 @@
+
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { sql } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,32 +15,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 })
     }
 
-    // Validar que contenga al menos una letra
     const hasLetter = /[a-zA-Z]/.test(newPassword)
     if (!hasLetter) {
       return NextResponse.json({ error: 'La contraseña debe contener al menos una letra' }, { status: 400 })
     }
 
-    // Verificar que el código fue usado recientemente (últimos 5 minutos)
-    const recentCodeResult = await sql`
-      SELECT id FROM password_reset_codes
-      WHERE email = ${email} AND used = true AND created_at > NOW() - INTERVAL '5 minutes'
-      ORDER BY created_at DESC LIMIT 1
-    `
+    // Checking if code was used recently (last 5 mins)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
 
-    if (recentCodeResult.length === 0) {
+    const recentCode = await prisma.passwordResetCode.findFirst({
+      where: {
+        email: email,
+        used: true,
+        createdAt: { gt: fiveMinutesAgo }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (!recentCode) {
       return NextResponse.json({ error: 'Código no verificado o expirado' }, { status: 400 })
     }
 
-    // Hash de la nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 12)
 
-    // Actualizar la contraseña del usuario
-    const updateResult = await sql`
-      UPDATE users SET password = ${hashedPassword} WHERE email = ${email}
-    `
-
-    // No devolver error si no se encuentra el usuario por seguridad
+    await prisma.user.update({
+      where: { email: email },
+      data: { password: hashedPassword }
+    })
 
     const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     console.log(`[SECURITY] Contraseña cambiada exitosamente para email: ${email}, IP: ${clientIP}`)

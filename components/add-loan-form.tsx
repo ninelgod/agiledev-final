@@ -53,11 +53,16 @@ export function AddLoanForm() {
 
   useEffect(() => {
     const userStr = localStorage.getItem("user")
-    if (!userStr) {
+    if (!userStr || userStr === "undefined") {
       router.push("/login")
       return
     }
-    setUser(JSON.parse(userStr))
+    try {
+      setUser(JSON.parse(userStr))
+    } catch (e) {
+      console.error("Error parsing user:", e)
+      router.push("/login")
+    }
   }, [router])
 
   useEffect(() => {

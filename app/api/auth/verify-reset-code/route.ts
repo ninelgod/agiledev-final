@@ -1,6 +1,7 @@
+
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { sql } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,56 +11,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email y código son requeridos' }, { status: 400 })
     }
 
-    // Buscar el código activo más reciente para este email
-    const codeResult = await sql`
-      SELECT id, code, attempts, blocked_until, expires_at
-      FROM password_reset_codes
-      WHERE email = ${email} AND used = false AND expires_at > NOW()
-      ORDER BY created_at DESC LIMIT 1
-    `
+    const resetCode = await prisma.passwordResetCode.findFirst({
+      where: {
+        email: email,
+        used: false,
+        expiresAt: { gt: new Date() }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
 
-    if (codeResult.length === 0) {
+    if (!resetCode) {
       return NextResponse.json({ error: 'Código inválido o expirado' }, { status: 400 })
     }
 
-    const resetCode = codeResult[0]
-
-    // Verificar si está bloqueado
-    if (resetCode.blocked_until && new Date(resetCode.blocked_until) > new Date()) {
-      const remainingTime = Math.ceil((new Date(resetCode.blocked_until).getTime() - Date.now()) / 1000 / 60)
+    if (resetCode.blockedUntil && resetCode.blockedUntil > new Date()) {
+      const remainingTime = Math.ceil((resetCode.blockedUntil.getTime() - Date.now()) / 1000 / 60)
       return NextResponse.json({
         error: `Demasiados intentos fallidos. Intenta nuevamente en ${remainingTime} minutos`,
         attemptsLeft: 0
       }, { status: 429 })
     }
 
-    // Verificar el código
     const isValidCode = await bcrypt.compare(code, resetCode.code)
 
     if (!isValidCode) {
-      // Incrementar contador de intentos
       const newAttempts = resetCode.attempts + 1
       const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
 
       if (newAttempts >= 3) {
-        // Bloquear por 2 minutos
         const blockedUntil = new Date(Date.now() + 2 * 60 * 1000)
-        await sql`
-          UPDATE password_reset_codes
-          SET attempts = ${newAttempts}, blocked_until = ${blockedUntil}
-          WHERE id = ${resetCode.id}
-        `
+        await prisma.passwordResetCode.update({
+          where: { id: resetCode.id },
+          data: { attempts: newAttempts, blockedUntil }
+        })
         console.log(`[SECURITY] Código bloqueado para email: ${email}, IP: ${clientIP}, intentos: ${newAttempts}`)
         return NextResponse.json({
           error: 'Código incorrecto. Acceso bloqueado por 2 minutos',
           attemptsLeft: 0
         }, { status: 429 })
       } else {
-        await sql`
-          UPDATE password_reset_codes
-          SET attempts = ${newAttempts}
-          WHERE id = ${resetCode.id}
-        `
+        await prisma.passwordResetCode.update({
+          where: { id: resetCode.id },
+          data: { attempts: newAttempts }
+        })
         console.log(`[SECURITY] Intento fallido de verificación para email: ${email}, IP: ${clientIP}, intentos: ${newAttempts}`)
         return NextResponse.json({
           error: `Código incorrecto. Te quedan ${3 - newAttempts} intentos`,
@@ -68,12 +62,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Código válido - marcar como usado y resetear intentos
-    await sql`
-      UPDATE password_reset_codes
-      SET used = true, attempts = 0
-      WHERE id = ${resetCode.id}
-    `
+    // Código válido
+    await prisma.passwordResetCode.update({
+      where: { id: resetCode.id },
+      data: { used: true, attempts: 0 }
+    })
 
     const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     console.log(`[SECURITY] Código verificado exitosamente para email: ${email}, IP: ${clientIP}`)

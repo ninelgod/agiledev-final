@@ -1,24 +1,25 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
+  Bell,
+  CreditCard,
   LogOut,
   Plus,
   Calendar,
   DollarSign,
   Building2,
   AlertCircle,
-  Pencil,
   Trash2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
+
+// Importaciones de UI
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,484 +30,241 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+
+// --- CORRECCIÓN DE IMPORTACIONES (SIN LLAVES) ---
+import { LoanPaymentDialog } from "@/components/loan-payment-dialog"
+import { NotificationSettingsDialog } from "@/components/notification-settings-dialog"
 import { CalendarView } from "@/components/calendar-view"
 
-interface Loan {
-  id: number
-  loan_code?: string
-  bank_name: string
-  loan_type: string
-  total_amount: number
-  final_total_amount: number
-  monthly_payment: number
-  payment_type: string
-  interest_rate?: number
-  start_date: string
-  end_date: string
-  is_active: boolean
-  next_due_date?: string
-  days_until_due?: number
-  is_overdue?: boolean
+// --- INTERFACES CORREGIDAS A CAMELCASE (Formato Prisma) ---
+interface User {
+  id: number // Prisma ID is Int
+  username: string
+  email: string
+  phoneNumber?: string | null
+  notificationsEnabled: boolean
 }
 
 interface Installment {
   id: number
-  loan_id: number
-  due_date: string
-  is_paid: boolean
+  loanId: number      // Prisma: Int
+  amount: number
+  dueDate: string | Date
+  isPaid: boolean
+  installmentNumber: number
+  loan?: { // Make optional initially to avoid strict parsing errors if some endpoints don't return it, but API/installments does.
+    bankName: string
+    loanType: string
+    monthlyPayment: number
+    totalAmount: number
+  }
 }
 
-interface User {
-  id: number
-  username: string
-  email: string
+interface Loan {
+  id: number // Prisma: Int
+  userId: number      // Prisma: Int
+  loanCode?: string
+  bankName: string
+  loanType: string
+  amount: number // Not in Prisma schema explicitly? Schema has totalAmount. 
+  // Wait, schema has totalAmount and monthlyPayment. 
+  // 'amount' variable usage needs check.
+  // In DashboardContent, 'amount' is used?
+  // User added 'amount: number' in previous step.
+  // Let's keep it safe or check usage. 
+  // Actually, let's map it correctly based on usage. 
+  // In 'getInstallmentsForDay' (CalendarView), it uses total_amount.
+  // Here in Dashboard, let's look at usage.
+  // It uses monthlyPayment and finalTotalAmount.
+  // 'amount' might be 'totalAmount' alias?
+  // Let's include totalAmount.
+  totalAmount: number
+  monthlyPayment: number
+  paymentType: string
+  startDate: string | Date
+  endDate: string | Date
+  finalTotalAmount: number
+  nextDueDate?: string | Date
+  daysUntilDue?: number
+  isOverdue?: boolean
 }
 
-export function DashboardContent() {
+// --- FUNCIONES DE AYUDA ---
+const formatCurrency = (amount: number | undefined) => {
+  if (amount === undefined) return "S/ 0.00"
+  return new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(amount)
+}
+
+const formatDate = (date: string | Date | undefined) => {
+  if (!date) return "N/A"
+  const d = new Date(date)
+  const userTimezoneOffset = d.getTimezoneOffset() * 60000
+  const adjustedDate = new Date(d.getTime() + userTimezoneOffset)
+  return adjustedDate.toLocaleDateString("es-PE", { day: "numeric", month: "long", year: "numeric" })
+}
+
+// --- COMPONENTE PRINCIPAL ---
+export default function DashboardContent() { // Agregado 'default' por si acaso lo necesitas importar así
   const router = useRouter()
+
+  // Estados
   const [user, setUser] = useState<User | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
   const [installments, setInstallments] = useState<Installment[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Estados UI
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null)
+  const [selectedLoanInstallments, setSelectedLoanInstallments] = useState<Installment[]>([])
+  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [loanToDelete, setLoanToDelete] = useState<number | null>(null)
+  const [loanToDelete, setLoanToDelete] = useState<string | null>(null)
   const [loansExpanded, setLoansExpanded] = useState(true)
   const [showPasswordReset, setShowPasswordReset] = useState(false)
-  const [resetStep, setResetStep] = useState<'request' | 'verify' | 'change'>('request')
-  const [resetEmail, setResetEmail] = useState("")
-  const [resetOldPassword, setResetOldPassword] = useState("")
-  const [resetCode, setResetCode] = useState("")
-  const [resetNewPassword, setResetNewPassword] = useState("")
-  const [resetError, setResetError] = useState("")
-  const [resetSuccess, setResetSuccess] = useState("")
-  const [resetLoading, setResetLoading] = useState(false)
-  const [attemptsLeft, setAttemptsLeft] = useState(3)
+  const [resetStep, setResetStep] = useState('request')
 
-  useEffect(() => {
-    const userStr = localStorage.getItem("user")
-    if (!userStr) {
-      router.push("/login")
-      return
-    }
-
-    const userData = JSON.parse(userStr)
-    setUser(userData)
-
-    loadData(userData.id)
-  }, [router])
-
-  const loadData = async (userId: number) => {
+  // Carga de datos
+  const loadData = async (userId: string) => {
+    setLoading(true)
+    setError(null)
     try {
-      const [loansResponse, installmentsResponse] = await Promise.all([
-        fetch(`/api/loans?userId=${userId}`),
-        fetch(`/api/installments?userId=${userId}`),
-      ])
+      console.log("🔄 Conectando con API (CamelCase)...", userId)
 
-      const loansData = await loansResponse.json()
-      const installmentsData = await installmentsResponse.json()
+      const loansRes = await fetch(`/api/loans?userId=${userId}`)
+      if (!loansRes.ok) throw new Error("Error cargando préstamos")
+      const loansData = await loansRes.json()
+      const rawLoans = loansData.loans || []
 
-      if (!loansResponse.ok || !installmentsResponse.ok) {
-        setError("Error al cargar datos")
-        setIsLoading(false)
-        return
-      }
+      // Enriquecer préstamos con cálculos de vencimiento
+      const enrichedLoans = rawLoans.map((loan: any) => {
+        const nextInstallment = loan.installments && loan.installments.length > 0 ? loan.installments[0] : null
+        let nextDueDate = undefined
+        let daysUntilDue = undefined
+        let isOverdue = false
 
-      console.log("[v0] Préstamos cargados:", loansData.loans.length)
-      console.log("[v0] Cuotas cargadas:", installmentsData.installments.length)
+        if (nextInstallment) {
+          nextDueDate = nextInstallment.dueDate
+          const due = new Date(nextDueDate)
+          const today = new Date()
+          // Reset hours for accurate day calc
+          today.setHours(0, 0, 0, 0)
+          due.setHours(0, 0, 0, 0)
 
-      setInstallments(installmentsData.installments)
-
-      const loansWithNextDue = loansData.loans.map((loan: Loan) => {
-        const loanInstallments = installmentsData.installments.filter(
-          (inst: Installment) => inst.loan_id === loan.id && !inst.is_paid,
-        )
-
-        if (loanInstallments.length === 0) {
-          return { ...loan, next_due_date: null, days_until_due: null, is_overdue: false }
+          const diffTime = due.getTime() - today.getTime()
+          daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+          isOverdue = daysUntilDue < 0
         }
-
-        // Ordenar por fecha y tomar la primera cuota pendiente
-        loanInstallments.sort(
-          (a: Installment, b: Installment) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime(),
-        )
-
-        const nextInstallment = loanInstallments[0]
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const dueDate = new Date(nextInstallment.due_date)
-        dueDate.setHours(0, 0, 0, 0)
-
-        const diffTime = dueDate.getTime() - today.getTime()
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-        console.log("[v0] Préstamo:", loan.bank_name, "Próxima cuota:", nextInstallment.due_date, "Días:", diffDays)
 
         return {
           ...loan,
-          next_due_date: nextInstallment.due_date,
-          days_until_due: diffDays,
-          is_overdue: diffDays < 0,
+          nextDueDate,
+          daysUntilDue,
+          isOverdue
         }
       })
 
-      setLoans(loansWithNextDue)
-      setIsLoading(false)
+      setLoans(enrichedLoans)
+
+      const instRes = await fetch(`/api/installments?userId=${userId}`)
+      if (instRes.ok) {
+        const instData = await instRes.json()
+        setInstallments(instData.installments || [])
+      } else {
+        setInstallments([])
+      }
+
     } catch (err) {
-      console.error("[v0] Error cargando datos:", err)
-      setError("Error de conexión")
-      setIsLoading(false)
+      console.error(" Error:", err)
+      setError("No se pudieron cargar los datos.")
+    } finally {
+      setLoading(false)
     }
   }
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser)
+      setUser(parsedUser)
+      loadData(parsedUser.id)
+    } else {
+      router.push("/login")
+    }
+  }, [])
+
+  // Handlers
   const handleLogout = () => {
     localStorage.removeItem("user")
     router.push("/login")
   }
 
-  const formatCurrency = (amount: number) => {
-    return `S/ ${new Intl.NumberFormat("es-PE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount)}`
+  const handleOpenPayment = (loan: Loan) => {
+    setSelectedLoanForPayment(loan)
+    // Filtramos usando loanId (CamelCase)
+    const loanInst = installments.filter(i => i.loanId === loan.id)
+    setSelectedLoanInstallments(loanInst)
+    setPaymentDialogOpen(true)
   }
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("es-ES", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
+  const handlePaymentSuccess = () => {
+    if (user) loadData(user.id)
+    setPaymentDialogOpen(false)
   }
 
-  const getStatusBadge = (loan: Loan) => {
-    if (!loan.next_due_date) {
-      return <Badge variant="secondary">Completado</Badge>
-    }
+  const handleNotificationUpdate = (updatedUser: User) => {
+    setUser(updatedUser)
+    localStorage.setItem("user", JSON.stringify(updatedUser))
+  }
 
-    const daysUntil = loan.days_until_due ?? 0
+  const confirmDelete = (loanId: string) => {
+    setLoanToDelete(loanId)
+    setDeleteDialogOpen(true)
+  }
 
-    if (daysUntil < 0) {
-      return <Badge variant="secondary">Vencido ({Math.abs(daysUntil)} días)</Badge>
-    } else if (daysUntil === 0) {
-      return <Badge variant="secondary">Vence hoy</Badge>
-    } else if (daysUntil <= 3) {
-      return <Badge variant="secondary">Próximo a vencer</Badge>
-    } else if (daysUntil <= 7) {
-      return <Badge variant="secondary">Esta semana</Badge>
-    } else {
-      return <Badge variant="secondary">Al día</Badge>
+  const handleDeleteLoan = async (id: string) => {
+    try {
+      await fetch(`/api/loans/${id}`, { method: "DELETE" })
+      if (user) loadData(user.id)
+      setDeleteDialogOpen(false)
+    } catch (err) {
+      setError("Error al eliminar el préstamo")
     }
   }
 
-  const totalMonthlyPayment = loans.reduce((sum, loan) => sum + Number(loan.monthly_payment), 0)
-
-  const nextDueInDays = loans
-    .filter((loan) => loan.next_due_date && loan.days_until_due !== null)
-    .reduce((min, loan) => {
-      const days = loan.days_until_due ?? Number.POSITIVE_INFINITY
-      return days < min ? days : min
-    }, Number.POSITIVE_INFINITY)
-
-  if (isLoading) {
+  const resetPasswordDialog = () => {
+    if (!showPasswordReset) return null;
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-60 w-full" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full">
+          <h2 className="text-xl font-bold mb-4">Gestión de Contraseña</h2>
+          <p className="mb-4 text-sm text-gray-600">Contacta soporte para cambiar tu contraseña.</p>
+          <Button onClick={() => setShowPasswordReset(false)} className="w-full">Cerrar</Button>
         </div>
       </div>
     )
   }
 
-  const handleDeleteLoan = async (loanId: number) => {
-    try {
-      const response = await fetch(`/api/loans/${loanId}`, {
-        method: "DELETE",
-      })
+  // Cálculos actualizados a CamelCase
+  const totalMonthlyPayment = loans.reduce((acc, loan) => acc + (loan.monthlyPayment || 0), 0)
 
-      if (!response.ok) {
-        const data = await response.json()
-        setError(data.error || "Error al eliminar préstamo")
-        return
-      }
+  const nextDueInDays = loans.reduce((min, loan) => {
+    const days = loan.daysUntilDue ?? Number.POSITIVE_INFINITY
+    return days < min ? days : min
+  }, Number.POSITIVE_INFINITY)
 
-      if (user) {
-        loadData(user.id)
-      }
-      setDeleteDialogOpen(false)
-      setLoanToDelete(null)
-    } catch (err) {
-      setError("Error de conexión al eliminar préstamo")
-    }
+  const getStatusBadge = (loan: Loan) => {
+    if (loan.isOverdue) return <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-medium border border-red-200">Vencido</span>
+    if ((loan.daysUntilDue ?? 999) <= 7) return <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-medium border border-yellow-200">Próximo</span>
+    return <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-medium border border-green-200">Al día</span>
   }
-
-  const confirmDelete = (loanId: number) => {
-    setLoanToDelete(loanId)
-    setDeleteDialogOpen(true)
-  }
-
-  const handleRequestPasswordReset = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setResetError("")
-    setResetLoading(true)
-
-    try {
-      const response = await fetch("/api/auth/request-password-reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail, oldPassword: resetOldPassword }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setResetError(data.error || "Error al solicitar código")
-        setResetLoading(false)
-        return
-      }
-
-      setResetSuccess("Código enviado al email. Revisa tu bandeja de entrada.")
-      setResetStep('verify')
-    } catch (err) {
-      setResetError("Error de conexión. Intenta nuevamente.")
-    } finally {
-      setResetLoading(false)
-    }
-  }
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setResetError("")
-    setResetLoading(true)
-
-    try {
-      const response = await fetch("/api/auth/verify-reset-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail, code: resetCode }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        if (data.attemptsLeft !== undefined) {
-          setAttemptsLeft(data.attemptsLeft)
-        }
-        setResetError(data.error || "Código inválido")
-        setResetLoading(false)
-        return
-      }
-
-      setResetSuccess("Código verificado correctamente")
-      setResetStep('change')
-    } catch (err) {
-      setResetError("Error de conexión. Intenta nuevamente.")
-    } finally {
-      setResetLoading(false)
-    }
-  }
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setResetError("")
-    setResetLoading(true)
-
-    try {
-      const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail, code: resetCode, newPassword: resetNewPassword }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setResetError(data.error || "Error al cambiar contraseña")
-        setResetLoading(false)
-        return
-      }
-
-      setResetSuccess("Contraseña cambiada exitosamente")
-      setTimeout(() => {
-        setShowPasswordReset(false)
-        setResetStep('request')
-        setResetEmail("")
-        setResetOldPassword("")
-        setResetCode("")
-        setResetNewPassword("")
-        setResetError("")
-        setResetSuccess("")
-        setAttemptsLeft(3)
-      }, 2000)
-    } catch (err) {
-      setResetError("Error de conexión. Intenta nuevamente.")
-    } finally {
-      setResetLoading(false)
-    }
-  }
-
-  const resetPasswordDialog = () => (
-    <Dialog open={showPasswordReset} onOpenChange={setShowPasswordReset}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Cambiar Contraseña</DialogTitle>
-          <DialogDescription>
-            {resetStep === 'request' && "Ingresa tu email y contraseña actual para recibir un código de verificación"}
-            {resetStep === 'verify' && "Ingresa el código de 6 dígitos enviado a tu email"}
-            {resetStep === 'change' && "Ingresa tu nueva contraseña"}
-          </DialogDescription>
-        </DialogHeader>
-
-        {resetStep === 'request' && (
-          <form onSubmit={handleRequestPasswordReset} className="space-y-4">
-            <div className="mt-4 text-center">
-              <p className="text-xs text-muted-foreground">
-                Si el email no está asociado a tu cuenta, aparecerá un mensaje de error.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="resetEmail">Email</Label>
-              <Input
-                id="resetEmail"
-                type="email"
-                placeholder="tu@email.com"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                required
-                disabled={resetLoading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="resetOldPassword">Contraseña Actual</Label>
-              <Input
-                id="resetOldPassword"
-                type="password"
-                placeholder="••••••"
-                value={resetOldPassword}
-                onChange={(e) => setResetOldPassword(e.target.value)}
-                required
-                disabled={resetLoading}
-              />
-            </div>
-            {resetError && (
-              <Alert variant="destructive">
-                <AlertDescription>{resetError}</AlertDescription>
-              </Alert>
-            )}
-            {resetSuccess && (
-              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
-                <AlertDescription>{resetSuccess}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={resetLoading}>
-              {resetLoading ? "Enviando..." : "Enviar Código"}
-            </Button>
-          </form>
-        )}
-
-        {resetStep === 'verify' && (
-          <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="resetCode">Código de Verificación</Label>
-              <Input
-                id="resetCode"
-                type="text"
-                placeholder="123456"
-                value={resetCode}
-                onChange={(e) => setResetCode(e.target.value)}
-                required
-                disabled={resetLoading}
-                maxLength={6}
-              />
-
-            </div>
-            {resetError && (
-              <Alert variant="destructive">
-                <AlertDescription>{resetError}</AlertDescription>
-              </Alert>
-            )}
-            {resetSuccess && (
-              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
-                <AlertDescription>{resetSuccess}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={resetLoading}>
-              {resetLoading ? "Verificando..." : "Verificar Código"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setResetStep('request')
-                setResetCode('')
-                setResetError('')
-                setResetSuccess('')
-                setAttemptsLeft(3)
-              }}
-              disabled={resetLoading}
-            >
-              Volver
-            </Button>
-          </form>
-        )}
-
-        {resetStep === 'change' && (
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="resetNewPassword">Nueva Contraseña</Label>
-              <Input
-                id="resetNewPassword"
-                type="password"
-                placeholder="••••••"
-                value={resetNewPassword}
-                onChange={(e) => setResetNewPassword(e.target.value)}
-                required
-                disabled={resetLoading}
-                minLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Mínimo 6 caracteres
-              </p>
-            </div>
-            {resetError && (
-              <Alert variant="destructive">
-                <AlertDescription>{resetError}</AlertDescription>
-              </Alert>
-            )}
-            {resetSuccess && (
-              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
-                <AlertDescription>{resetSuccess}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={resetLoading}>
-              {resetLoading ? "Cambiando..." : "Cambiar Contraseña"}
-            </Button>
-            {resetSuccess && (
-              <div className="text-center">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPasswordReset(false)}
-                  className="w-full mt-2"
-                >
-                  Cerrar
-                </Button>
-              </div>
-            )}
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8 transition-all">
       <div className="max-w-6xl mx-auto space-y-6">
+
+        {/* Encabezado */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
@@ -514,19 +272,15 @@ export function DashboardContent() {
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus préstamos y pagos mensuales</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setResetStep('request')
-                setShowPasswordReset(true)
-              }}
-            >
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setNotificationSettingsOpen(true)} className="bg-white/50 backdrop-blur-sm">
+              <Bell className="mr-2 h-4 w-4" /> Notificaciones
+            </Button>
+            <Button variant="outline" onClick={() => { setResetStep('request'); setShowPasswordReset(true); }} className="bg-white/50 backdrop-blur-sm">
               Cambiar Contraseña
             </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Cerrar Sesión
+            <Button variant="outline" onClick={handleLogout} className="bg-white/50 backdrop-blur-sm hover:bg-red-50 hover:text-red-600 border-red-200">
+              <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
             </Button>
           </div>
         </div>
@@ -538,8 +292,9 @@ export function DashboardContent() {
           </Alert>
         )}
 
+        {/* Tarjetas de Métricas */}
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card className="bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Préstamos</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -550,7 +305,7 @@ export function DashboardContent() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pago Mensual Total</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -561,29 +316,31 @@ export function DashboardContent() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Próximo Vencimiento</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className={`text-2xl font-bold ${nextDueInDays < 0 ? 'text-red-600' : ''}`}>
                 {nextDueInDays === Number.POSITIVE_INFINITY
                   ? "N/A"
                   : nextDueInDays < 0
                     ? `${Math.abs(nextDueInDays)} días atrasado`
-                    : `${nextDueInDays} días`}
+                    : nextDueInDays === 0 ? "¡Vence Hoy!" : `${nextDueInDays} días`}
               </div>
               <p className="text-xs text-muted-foreground">
-                {nextDueInDays < 0 ? "Pago vencido" : "Hasta el próximo pago"}
+                {nextDueInDays < 0 ? "Pago vencido, ¡atención!" : "Hasta el próximo pago"}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {user && <CalendarView userId={user.id} />}
+        {/* Si userId sigue marcando error, prueba cambiar userId={user.id} por user={user} */}
+        {user && <CalendarView installments={installments} />}
 
-        <Card>
+        {/* Lista de Préstamos */}
+        <Card className="shadow-md">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -595,15 +352,15 @@ export function DashboardContent() {
                 </div>
                 <CardDescription>Detalles de todos tus préstamos y fechas de pago</CardDescription>
               </div>
-              <Button onClick={() => router.push("/dashboard/add-loan")} className="md:flex hidden">
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar Préstamo
+              <Button onClick={() => router.push("/dashboard/add-loan")} className="md:flex hidden bg-blue-600 hover:bg-blue-700">
+                <Plus className="mr-2 h-4 w-4" /> Agregar Préstamo
               </Button>
-              <Button onClick={() => router.push("/dashboard/add-loan")} size="sm" className="md:hidden">
+              <Button onClick={() => router.push("/dashboard/add-loan")} size="sm" className="md:hidden bg-blue-600">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>
+
           {loansExpanded && (
             <CardContent>
               {loans.length === 0 ? (
@@ -612,110 +369,108 @@ export function DashboardContent() {
                   <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
                     No tienes préstamos registrados
                   </h3>
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Comienza agregando tu primer préstamo</p>
                   <Button className="mt-4" onClick={() => router.push("/dashboard/add-loan")}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Agregar Préstamo
+                    <Plus className="mr-2 h-4 w-4" /> Agregar Préstamo
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {loans
-                    .sort((a, b) => {
-                      const aDays = a.days_until_due ?? Number.POSITIVE_INFINITY
-                      const bDays = b.days_until_due ?? Number.POSITIVE_INFINITY
-                      return aDays - bDays
-                    })
-                    .map((loan) => {
-                      return (
-                        <div
-                          key={loan.id}
-                          className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors gap-4"
-                        >
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {loan.loan_code && (
-                                <span className="text-sm font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                                  {loan.loan_code}
-                                </span>
-                              )}
-                              <h3 className="font-semibold text-lg">{loan.bank_name}</h3>
-                              {getStatusBadge(loan)}
-                            </div>
-                            <p className="text-sm text-muted-foreground">{loan.loan_type}</p>
-                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-2">
-                              <span>
-                                <strong>Cuota mensual:</strong> {formatCurrency(loan.monthly_payment)}
-                              </span>
-                              <span>
-                                <strong>Tipo de pago:</strong> {loan.payment_type.includes('Plazo fijo') ? 'Plazo fijo' : 'De acuerdo a días'}
-                              </span>
-                              <span>
-                                <strong>Total:</strong> {formatCurrency(loan.final_total_amount)}
-                              </span>
-                            </div>
+                  {loans.sort((a, b) => (a.daysUntilDue ?? 999) - (b.daysUntilDue ?? 999)).map((loan) => {
+                    let cardStyle = "border rounded-lg hover:bg-accent/50 transition-all duration-200"
+                    const daysUntil = loan.daysUntilDue ?? 999
+
+                    if (loan.nextDueDate) {
+                      if (daysUntil < 0) {
+                        cardStyle = "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm"
+                      } else if (daysUntil <= 7) {
+                        cardStyle = "border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10 shadow-sm"
+                      } else {
+                        cardStyle = "border-l-4 border-l-blue-500/0 hover:border-l-blue-500 bg-white dark:bg-gray-800 shadow-sm"
+                      }
+                    } else {
+                      cardStyle = "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-900/10 opacity-75"
+                    }
+
+                    return (
+                      <div key={loan.id} className={`flex flex-col md:flex-row md:items-center justify-between p-4 gap-4 ${cardStyle}`}>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {loan.loanCode && <span className="text-xs font-mono bg-white dark:bg-gray-800 px-2 py-0.5 rounded border text-gray-500">{loan.loanCode}</span>}
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{loan.bankName}</h3>
+                            {getStatusBadge(loan)}
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                            {loan.next_due_date ? (
-                              <>
-                                <div className="text-right">
-                                  <p className="text-sm text-muted-foreground">
-                                    {loan.is_overdue ? "Vencido hace" : "Próximo pago en"}
-                                  </p>
-                                  <p className="text-2xl font-bold">{Math.abs(loan.days_until_due ?? 0)} días</p>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Próxima cuota: {formatDate(loan.next_due_date)}
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">Todas las cuotas pagadas</p>
-                            )}
-                            <p className="text-xs text-muted-foreground">Finaliza: {formatDate(loan.end_date)}</p>
-                            <div className="flex gap-2 mt-2">
-                              {/* <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => router.push(`/dashboard/edit-loan/${loan.id}`)}
-                              >
-                                <Pencil className="h-4 w-4 mr-1" />
-                                Editar
-                              </Button> 
-                              <Button variant="destructive" size="sm" onClick={() => confirmDelete(loan.id)}>
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Eliminar
-                              </Button>*/}
-                            </div>
+                          <p className="text-sm text-muted-foreground">{loan.loanType}</p>
+                          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300 mt-2">
+                            <span><strong className="font-medium text-gray-900 dark:text-gray-100">Cuota:</strong> {formatCurrency(loan.monthlyPayment)}</span>
+                            <span><strong className="font-medium text-gray-900 dark:text-gray-100">Total:</strong> {formatCurrency(loan.finalTotalAmount)}</span>
                           </div>
                         </div>
-                      )
-                    })}
+
+                        <div className="flex flex-col items-end gap-2 min-w-[140px]">
+                          {loan.nextDueDate ? (
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">{loan.isOverdue ? "Vencido hace" : "Vence en"}</p>
+                              <p className={`text-2xl font-bold tabular-nums ${loan.isOverdue ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
+                                {Math.abs(daysUntil)} <span className="text-sm font-normal text-gray-500">días</span>
+                              </p>
+                              <p className="text-xs text-gray-500">{formatDate(loan.nextDueDate)}</p>
+                            </div>
+                          ) : <div className="text-right px-3 py-2 bg-green-100 text-green-700 rounded-md font-medium text-sm">¡Pagado Totalmente!</div>}
+
+                          <div className="flex gap-2 mt-1 w-full justify-end">
+                            {loan.nextDueDate && (
+                              <Button size="sm" onClick={() => handleOpenPayment(loan)} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+                                <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Pagar
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => confirmDelete(loan.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
           )}
         </Card>
 
+        {/* Diálogos */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+              <AlertDialogTitle>¿Estás seguro de eliminar?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción no se puede deshacer. El préstamo será eliminado permanentemente.
+                Esta acción borrará el préstamo y todo su historial de pagos. No se puede deshacer.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => loanToDelete && handleDeleteLoan(loanToDelete)}
-                className="bg-destructive text-white hover:bg-destructive/90"
-              >
-                Eliminar
+              <AlertDialogAction onClick={() => loanToDelete && handleDeleteLoan(loanToDelete)} className="bg-red-600 hover:bg-red-700 text-white">
+                Sí, Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
         {resetPasswordDialog()}
+
+        <LoanPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          loan={selectedLoanForPayment}
+          installments={selectedLoanInstallments}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+
+        <NotificationSettingsDialog
+          open={notificationSettingsOpen}
+          onOpenChange={setNotificationSettingsOpen}
+          user={user}
+          onUpdateSuccess={handleNotificationUpdate}
+        />
       </div>
     </div>
   )
