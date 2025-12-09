@@ -2,5 +2,4 @@
     "framework": "nextjs",
     "installCommand": "npm install --legacy-peer-deps",
     "buildCommand": "npx prisma generate && next build",
-    "packageManager": "npm"
 }
