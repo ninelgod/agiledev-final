@@ -36,6 +36,17 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                         if (sub) {
                             setSubscription(sub)
                             setIsSubscribed(true)
+
+                            // SYNC: Ensure backend knows about this subscription for CURRENT user
+                            // This fixes the issue where browser has sub but DB doesn't (different user or lost sync)
+                            fetch('/api/notifications/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    subscription: sub,
+                                    userId: userId
+                                })
+                            }).catch(e => console.error("Sync sub error:", e))
                         }
                     })
                 })
@@ -43,7 +54,7 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                     console.error('Service Worker registration failed:', err)
                 })
         }
-    }, [])
+    }, [userId]) // Depend on userId to resync if user changes
 
     const subscribeToPush = async () => {
         setIsLoading(true)
@@ -151,13 +162,21 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                                 method: 'POST',
                                 body: JSON.stringify({ userId }),
                             }).then(async r => {
-                                if (!r.ok) throw new Error(await r.text())
+                                if (!r.ok) {
+                                    const text = await r.text()
+                                    try {
+                                        const json = JSON.parse(text)
+                                        throw new Error(json.message || json.error || text)
+                                    } catch (e: any) {
+                                        throw new Error(text || e.message)
+                                    }
+                                }
                                 return r.json()
                             }),
                             {
                                 loading: 'Enviando prueba...',
                                 success: '¡Enviada! Revisa tu barra de estado.',
-                                error: 'Error al enviar prueba'
+                                error: (err) => `Error: ${err.message}`
                             }
                         )
                     }}
