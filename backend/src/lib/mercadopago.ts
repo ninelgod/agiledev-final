@@ -1,5 +1,5 @@
-import { MercadoPagoConfig, Preference } from 'mercadopago';
 import dotenv from 'dotenv';
+import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -10,12 +10,13 @@ if (!accessToken) {
     throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurado en las variables de entorno');
 }
 
-// Configurar cliente de MercadoPago
-const client = new MercadoPagoConfig({
+// Configurar cliente de MercadoPago (SDK nuevo)
+export const client = new MercadoPagoConfig({
     accessToken: accessToken
 });
 
-// Exportar cliente y Preference para usar en otras partes del backend
-import { Payment } from 'mercadopago';
-export { client, Preference, Payment };
+// Exportar clases del SDK nuevo correctamente
+export { Preference, Payment };
+
+// Public key para el frontend
 export const mercadoPagoPublicKey = process.env.MERCADOPAGO_PUBLIC_KEY;
