@@ -6,14 +6,34 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://agiledev-final.vercel.app/';
+const PORT = Number(process.env.PORT) || 4000;
 
-// Middleware
+// Normalizar FRONTEND_URL (quitar slash final si lo tiene)
+const rawFrontend = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = rawFrontend.replace(/\/$/, ''); // ahora sin slash final
+
+// Middleware: CORS robusto (acepta la versión con/sin slash y peticiones sin origin como curl/postman)
 app.use(cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+        // allow requests with no origin (like curl, mobile apps, server-to-server)
+        if (!origin) return callback(null, true);
+
+        const allowedOrigins = [
+            FRONTEND_URL,                    // e.g. https://agiledev-final.vercel.app
+            `${FRONTEND_URL}/`               // e.g. https://agiledev-final.vercel.app/
+        ];
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        // not allowed
+        return callback(new Error(`CORS policy: origin ${origin} not allowed`), false);
+    },
     credentials: true,
 }));
+
+// Middleware para parsear JSON
 app.use(express.json());
 
 // Health check
@@ -37,7 +57,6 @@ app.use('/api/installments', installmentsRoutes);
 app.use('/api/loan-utils', loanUtilsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
-
 // Error handling middleware
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Error:', err);
@@ -55,7 +74,7 @@ startCronJobs();
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+    console.log(`🚀 Backend server running on port ${PORT}`);
     console.log(`📡 Accepting requests from: ${FRONTEND_URL}`);
 });
 

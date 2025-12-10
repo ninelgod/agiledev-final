@@ -1,49 +1,11 @@
 globalThis.__BUILD_MANIFEST = {
   "pages": {
-    "/_app": [
-      "static/chunks/08ef4_next_dist_compiled_a84d6a64._.js",
-      "static/chunks/08ef4_next_dist_shared_lib_5041ab54._.js",
-      "static/chunks/08ef4_next_dist_client_ae939732._.js",
-      "static/chunks/08ef4_next_dist_72a611d3._.js",
-      "static/chunks/08ef4_next_app_0699a48d.js",
-      "static/chunks/[next]_entry_page-loader_ts_4ff01a77._.js",
-      "static/chunks/08ef4_react-dom_83d4fa76._.js",
-      "static/chunks/08ef4_f4608dba._.js",
-      "static/chunks/[root-of-the-server]__30ec1585._.js",
-      "static/chunks/gestor-prestamos_frontend_pages__app_2da965e7._.js",
-      "static/chunks/turbopack-gestor-prestamos_frontend_pages__app_15a34700._.js"
-    ],
-    "/_error": [
-      "static/chunks/08ef4_next_dist_compiled_a84d6a64._.js",
-      "static/chunks/08ef4_next_dist_shared_lib_c12bd9c7._.js",
-      "static/chunks/08ef4_next_dist_client_ae939732._.js",
-      "static/chunks/08ef4_next_dist_d04a0dde._.js",
-      "static/chunks/08ef4_next_error_a8045645.js",
-      "static/chunks/[next]_entry_page-loader_ts_e3309765._.js",
-      "static/chunks/08ef4_react-dom_83d4fa76._.js",
-      "static/chunks/08ef4_f4608dba._.js",
-      "static/chunks/[root-of-the-server]__ff368a5c._.js",
-      "static/chunks/gestor-prestamos_frontend_pages__error_2da965e7._.js",
-      "static/chunks/turbopack-gestor-prestamos_frontend_pages__error_058dbe68._.js"
-    ]
+    "/_app": []
   },
   "devFiles": [],
-  "polyfillFiles": [
-    "static/chunks/08ef4_next_dist_build_polyfills_polyfill-nomodule.js"
-  ],
+  "polyfillFiles": [],
   "lowPriorityFiles": [],
-  "rootMainFiles": [
-    "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_d824aaf2._.js",
-    "static/chunks/08ef4_next_dist_compiled_react-dom_cda8c33f._.js",
-    "static/chunks/08ef4_next_dist_compiled_react-server-dom-turbopack_74d25d82._.js",
-    "static/chunks/08ef4_next_dist_compiled_next-devtools_index_9c2aed43.js",
-    "static/chunks/08ef4_next_dist_compiled_844001b2._.js",
-    "static/chunks/08ef4_next_dist_client_06943fe9._.js",
-    "static/chunks/08ef4_next_dist_19b834d9._.js",
-    "static/chunks/08ef4_@swc_helpers_cjs_f637f8f3._.js",
-    "static/chunks/gestor-prestamos_frontend_a0ff3932._.js",
-    "static/chunks/turbopack-gestor-prestamos_frontend_40786d85._.js"
-  ]
+  "rootMainFiles": []
 };
 globalThis.__BUILD_MANIFEST.lowPriorityFiles = [
 "/static/" + process.env.__NEXT_BUILD_ID + "/_buildManifest.js",
