@@ -54,8 +54,10 @@ export function PushNotificationManager({ userId }: { userId: number }) {
         }
 
         try {
-            // Use env var or fallback to the new key
-            let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
+            // FORCE hardcoded key to rule out Vercel Env Var issues
+            let vapidKey = 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
+
+            // let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
 
             // Clean the key just in case (remove quotes, whitespace)
             vapidKey = vapidKey.replace(/['"\s]/g, '')

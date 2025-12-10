@@ -2,9 +2,9 @@ import webpush from 'web-push'
 import { prisma } from "@/lib/prisma"
 
 // Configurar VAPID keys
-// En producción deben venir de variables de entorno
-const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
-const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'lrdmCrAFGzNr3woVv3K9-Nr6oLOt7N3DBJFzCzhCQLI'
+// En producción deben venir de variables de entorno, pero forzamos para debug
+const publicVapidKey = 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
+const privateVapidKey = 'lrdmCrAFGzNr3woVv3K9-Nr6oLOt7N3DBJFzCzhCQLI'
 
 function initWebPush() {
     webpush.setVapidDetails(
