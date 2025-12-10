@@ -1,0 +1,9 @@
+Starting test...
+Sending request...
+Response received: 200
+Response Body: {
+  "id": "376664174-fa3b99d8-6384-4c7e-ac7c-4cab52c95cdb",
+  "init_point": "https://www.mercadopago.com.pe/checkout/v1/redirect?pref_id=376664174-fa3b99d8-6384-4c7e-ac7c-4cab52c95cdb",
+  "sandbox_init_point": "https://sandbox.mercadopago.com.pe/checkout/v1/redirect?pref_id=376664174-fa3b99d8-6384-4c7e-ac7c-4cab52c95cdb",
+  "preference_id": "376664174-fa3b99d8-6384-4c7e-ac7c-4cab52c95cdb"
+}

@@ -1,0 +1,23 @@
+{
+  "app": {
+    "[project]/gestor-prestamos/frontend/src/app/dashboard/add-loan/page": [
+      "static/media/Geist_Variable-s.p.f19e4721.woff2",
+      "static/media/GeistMono_Variable.p.73882635.woff2"
+    ],
+    "[project]/gestor-prestamos/frontend/src/app/dashboard/page": [
+      "static/media/Geist_Variable-s.p.f19e4721.woff2",
+      "static/media/GeistMono_Variable.p.73882635.woff2"
+    ],
+    "[project]/gestor-prestamos/frontend/src/app/login/page": [
+      "static/media/Geist_Variable-s.p.f19e4721.woff2",
+      "static/media/GeistMono_Variable.p.73882635.woff2"
+    ],
+    "[project]/gestor-prestamos/frontend/src/app/page": [
+      "static/media/Geist_Variable-s.p.f19e4721.woff2",
+      "static/media/GeistMono_Variable.p.73882635.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}
