@@ -42,7 +42,7 @@ export function PushNotificationManager({ userId }: { userId: number }) {
         try {
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: 'BOJaihx4FnlEMADy9D0X6NLnhshjyTeCgHVkPtxeYs8NEQlSrTVgE53t-8HxhmULx_wrLGs5jLFGBBEZZQJ853I'
+                applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOQL-dLrULzrMGcgFMiob4SdYC_hjLhbZiD-AV_g1COS4HknWQFT1W4t6cWM34VHw6eIIzd7WLr16MhpOBlZEyU'
             })
 
             setSubscription(sub)
