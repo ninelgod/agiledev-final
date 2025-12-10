@@ -18,8 +18,22 @@ model User {
   loginBlockedUntil    DateTime? @map("login_blocked_until") @db.Timestamp(6)
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   loans                Loan[]
+  pushSubscriptions    PushSubscription[]
 
   @@map("users")
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  endpoint  String   @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model Loan {

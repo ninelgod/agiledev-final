@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, AlertCircle } from "lucide-react"
+import { PushNotificationManager } from "@/components/push-notification-manager"
 
 interface User {
     id: number
@@ -122,43 +123,19 @@ export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateS
                 <DialogHeader>
                     <DialogTitle>Configurar Notificaciones</DialogTitle>
                     <DialogDescription>
-                        Recibe alertas por SMS cuando tus cuotas estén por vencer.
+                        Recibe alertas en tu dispositivo cuando tus cuotas estén por vencer.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
-                    <div className="flex items-center space-x-2">
-                        <Switch id="notifications" checked={enabled} onCheckedChange={setEnabled} />
-                        <Label htmlFor="notifications">Activar notificaciones</Label>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Número de Celular</Label>
-                        <div className="flex gap-2">
-                            <Select value={countryCode} onValueChange={setCountryCode} disabled={!enabled}>
-                                <SelectTrigger className="w-[110px]">
-                                    <SelectValue placeholder="País" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {COUNTRY_CODES.map((c) => (
-                                        <SelectItem key={c.code} value={c.code}>
-                                            {c.code} {c.country.split(" ")[1]}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Input
-                                id="phone"
-                                placeholder="999 999 999"
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                disabled={!enabled}
-                                className="flex-1"
-                            />
+                    <div className="space-y-4">
+                        <div className="border p-4 rounded-md bg-muted/20">
+                            <h4 className="text-sm font-medium mb-2">Notificaciones Push</h4>
+                            <p className="text-xs text-muted-foreground mb-4">
+                                Activa las notificaciones en este dispositivo para recibir alertas de pago.
+                            </p>
+                            {user && <PushNotificationManager userId={user.id} />}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            Selecciona tu código de país e ingresa tu número.
-                        </p>
                     </div>
                 </div>
 

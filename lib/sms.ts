@@ -28,7 +28,13 @@ export async function sendSMS(to: string, body: string) {
         console.log(`[SMS] Sent successfully to ${to}. SID: ${message.sid}`)
         return { success: true, sid: message.sid }
     } catch (error: any) {
-        console.error("[SMS] Error sending message:", error)
+        console.error("[SMS] Error sending message to:", to)
+        if (error.code === 21608) {
+            console.error(" [!!!] TWILIO TRIAL ERROR: You can only send SMS to Verified Caller IDs.")
+            console.error(" [!!!] Go to https://console.twilio.com/us1/develop/phone-numbers/manage/verified to add this number.")
+        } else {
+            console.error(" [SMS] Details:", error.message)
+        }
         return { success: false, error: error.message }
     }
 }

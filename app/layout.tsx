@@ -9,7 +9,10 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "Gestor de Préstamos - Nunca olvides un pago",
   description: "Gestiona tus préstamos bancarios y pagos mensuales de forma sencilla",
+  manifest: "/manifest.json",
 }
+
+import { Toaster } from "@/components/ui/sonner"
 
 export default function RootLayout({
   children,
@@ -21,6 +24,7 @@ export default function RootLayout({
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <Suspense fallback={null}>{children}</Suspense>
         <Analytics />
+        <Toaster />
       </body>
     </html>
   )

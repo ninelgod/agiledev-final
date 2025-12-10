@@ -1,7 +1,9 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { sendSMS } from "@/lib/sms"
+import { sendNotificationToUser } from "@/lib/web-push"
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -219,13 +221,12 @@ export async function POST(request: NextRequest) {
 
         if (dueToday) {
           const message = `Hoy tienes que pagar ${loanWithInstallments.bankName} S/ ${dueToday.amount}`
-          console.log(`[New Loan SMS] Sending immediate alert to ${user.username}`)
-          try {
-            await sendSMS(user.phoneNumber, message)
-            console.log("[New Loan SMS] Sent successfully")
-          } catch (err) {
-            console.error("[New Loan SMS] Failed:", err)
-          }
+          console.log(`[New Loan Push] Sending immediate alert to ${user.username}`)
+
+          await sendNotificationToUser(user.id, {
+            title: 'Recordatorio de Pago',
+            body: message
+          })
         } else {
           console.log("[New Loan Debug] No installment found due today.")
         }

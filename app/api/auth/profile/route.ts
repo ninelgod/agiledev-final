@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-import { sendSMS } from "@/lib/sms"
+import { prisma } from "@/lib/prisma"
+import { sendNotificationToUser } from "@/lib/web-push"
 
-const prisma = new PrismaClient()
+export const dynamic = 'force-dynamic'
 
 export async function PUT(request: Request) {
     try {
@@ -27,9 +27,12 @@ export async function PUT(request: Request) {
             },
         })
 
-        if (Boolean(notificationsEnabled) && formattedPhoneNumber) {
-            const result = await sendSMS(formattedPhoneNumber, "Gestor de Prestamos: Ahora recibira notificaciones el dia de la fecha de vencimiento de su deuda")
-            console.log("SMS Welcome Result:", result)
+        if (Boolean(notificationsEnabled)) {
+            // Send welcome notification to all devices
+            await sendNotificationToUser(Number(id), {
+                title: 'Gestor de Prestamos',
+                body: 'Tus notificaciones están activas en todos tus dispositivos.'
+            })
         }
 
         // Exclude password from response

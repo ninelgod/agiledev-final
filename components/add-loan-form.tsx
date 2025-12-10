@@ -45,9 +45,16 @@ export function AddLoanForm() {
 
   // Función para calcular la cuota mensual usando sistema francés
   const calculateMonthlyPayment = (principal: number, tea: number, numInstallments: number): number => {
+    if (tea === 0) return principal / numInstallments
+
     const tem = calculateTEM(tea)
+    if (tem === 0) return principal / numInstallments // Fallback extra safety
+
     const numerator = principal * tem
     const denominator = 1 - Math.pow(1 + tem, -numInstallments)
+
+    if (denominator === 0) return 0 // Avoid division by zero
+
     return numerator / denominator
   }
 
@@ -119,7 +126,7 @@ export function AddLoanForm() {
 
       setFormData((prev) => ({
         ...prev,
-        installmentAmount: installmentAmount.toFixed(2)
+        installmentAmount: isFinite(installmentAmount) ? installmentAmount.toFixed(2) : ""
       }))
     }
   }, [formData.totalAmount, formData.numberOfInstallments, formData.interestRate])

@@ -1,7 +1,8 @@
-
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { sendSMS } from "@/lib/sms"
+import { sendNotificationToUser } from "@/lib/web-push"
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
     try {
@@ -48,18 +49,25 @@ export async function GET(request: NextRequest) {
 
         for (const installment of dueInstallments) {
             const user = installment.loan.user
-            if (user.phoneNumber) {
-                const message = `Hoy tienes que pagar ${installment.loan.bankName} S/ ${installment.amount}`
-                const result = await sendSMS(user.phoneNumber, message)
-                console.log(`[SMS] Result for ${user.username}:`, result)
+            const message = `Hoy tienes que pagar ${installment.loan.bankName} S/ ${installment.amount}`
 
-                notificationsSent.push({
-                    user: user.username,
-                    phone: user.phoneNumber,
-                    message: message,
-                    status: result.success ? "SENT" : "FAILED",
-                    error: result.error
+            if (user.notificationsEnabled) {
+                const result = await sendNotificationToUser(user.id, {
+                    title: 'Recordatorio de Deuda',
+                    body: message
                 })
+
+                if (result.success) {
+                    notificationsSent.push({
+                        user: user.username,
+                        type: "PUSH",
+                        message: message,
+                        status: "SENT",
+                        count: result.count
+                    })
+                } else {
+                    console.log(`[Cron] No active subscriptions or failed to send for ${user.username}`)
+                }
             }
         }
 
