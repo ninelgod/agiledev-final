@@ -198,12 +198,12 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Verificar si hay cuota hoy y enviar SMS inmediato
+    // Verificar si hay cuota hoy y enviar Push inmediato
     if (loanWithInstallments && loanWithInstallments.user) {
       const user = loanWithInstallments.user
-      console.log(`[New Loan Debug] User: ${user.username}, Phone: ${user.phoneNumber}, Notifs: ${user.notificationsEnabled}`)
+      console.log(`[New Loan Debug] User: ${user.username}, Notifs: ${user.notificationsEnabled}`)
 
-      if (user.notificationsEnabled && user.phoneNumber) {
+      if (user.notificationsEnabled) {
         // Use Start/End of day comparison instead of string equality to avoid timezone mismatch
         const todayStart = new Date()
         todayStart.setHours(0, 0, 0, 0)
@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
           console.log("[New Loan Debug] No installment found due today.")
         }
       } else {
-        console.log("[New Loan Debug] Notifications disabled or no phone number.")
+        console.log("[New Loan Debug] Notifications disabled.")
       }
     }
 

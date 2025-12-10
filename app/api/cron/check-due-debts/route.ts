@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
                 loan: {
                     isActive: true,
                     user: {
-                        notificationsEnabled: true,
-                        phoneNumber: { not: null }
+                        notificationsEnabled: true
+                        // phoneNumber requirement removed for Push Notifications
                     }
                 }
             },
