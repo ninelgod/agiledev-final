@@ -55,8 +55,12 @@ export function PushNotificationManager({ userId }: { userId: number }) {
 
         try {
             // Use env var or fallback to the new key
-            // Crucial: Must be converted to Uint8Array for browser compatibility
-            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOQL-dLrULzrMGcgFMiob4SdYC_hjLhbZiD-AV_g1COS4HknWQFT1W4t6cWM34VHw6eIIzd7WLr16MhpOBlZEyU'
+            let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOQL-dLrULzrMGcgFMiob4SdYC_hjLhbZiD-AV_g1COS4HknWQFT1W4t6cWM34VHw6eIIzd7WLr16MhpOBlZEyU'
+
+            // Clean the key just in case (remove quotes, whitespace)
+            vapidKey = vapidKey.replace(/['"\s]/g, '')
+
+            console.log('[DEBUG] Vapid Key being used (first 10 chars):', vapidKey.substring(0, 10))
             const convertedKey = urlBase64ToUint8Array(vapidKey)
 
             const sub = await registration.pushManager.subscribe({
