@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { MercadoPagoButton } from "@/frontend/components/MercadoPagoButton"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/frontend/components/ui/button"
 import {
     Dialog,
@@ -39,6 +38,12 @@ interface LoanPaymentDialogProps {
     onPaymentSuccess: () => void
 }
 
+declare global {
+    interface Window {
+        MercadoPago?: any;
+    }
+}
+
 export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPaymentSuccess }: LoanPaymentDialogProps) {
     const [selectedInstallment, setSelectedInstallment] = useState<string>("")
     const [paymentMethod, setPaymentMethod] = useState("Transferencia")
@@ -53,6 +58,186 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
 
     // Get selected installment details
     const selectedInstDetails = pendingInstallments.find(i => i.id.toString() === selectedInstallment)
+
+    // brick container ref/id
+    const brickContainerId = "paymentBrick_container"
+    const brickMountedRef = useRef(false)
+
+    // Public key from env (must be set in Vercel)
+    const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ""
+
+    // Normalize API URL
+    const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000").replace(/\/$/, "")
+
+    // Initialize / destroy Payment Brick when user selects Tarjeta + a valid installment
+    useEffect(() => {
+        // Only run on client and if method is Tarjeta and we have a selected installment
+        if (typeof window === "undefined") return
+        if (!window.MercadoPago && MP_PUBLIC_KEY) {
+            // Try to dynamically load MercadoPago script if not present
+            const scriptId = "mp-script"
+            if (!document.getElementById(scriptId)) {
+                const s = document.createElement("script")
+                s.id = scriptId
+                s.src = "https://sdk.mercadopago.com/js/v2"
+                s.async = true
+                s.onload = () => {
+                    console.log("MercadoPago SDK loaded")
+                }
+                document.body.appendChild(s)
+            }
+        }
+
+        // create brick after script loads (or if already loaded)
+        const tryCreate = async () => {
+            // unmount any previous brick
+            try {
+                const el = document.getElementById(brickContainerId)
+                if (!el) return
+            } catch (e) {
+                // ignore
+            }
+
+            // conditions to create brick
+            if (paymentMethod !== "Tarjeta" || !selectedInstDetails) {
+                // destroy if mounted
+                if (brickMountedRef.current) {
+                    const c = document.getElementById(brickContainerId)
+                    if (c) c.innerHTML = ""
+                    brickMountedRef.current = false
+                }
+                return
+            }
+
+            // Wait for MercadoPago to be available
+            const waitForMP = () => new Promise<void>((resolve) => {
+                const max = 5000
+                const interval = 100
+                let waited = 0
+                const timer = setInterval(() => {
+                    if ((window as any).MercadoPago) {
+                        clearInterval(timer)
+                        return resolve()
+                    }
+                    waited += interval
+                    if (waited >= max) {
+                        clearInterval(timer)
+                        return resolve() // let code run but MercadoPago may still be undefined
+                    }
+                }, interval)
+            })
+
+            await waitForMP()
+            const MercadoPago = (window as any).MercadoPago
+            if (!MercadoPago) {
+                console.error("MercadoPago SDK not loaded")
+                setError("No se pudo cargar MercadoPago. Intenta recargar la página.")
+                return
+            }
+
+            try {
+                // instantiate mp
+                const mp = new MercadoPago(MP_PUBLIC_KEY, { locale: "es-PE" })
+                const bricksBuilder = mp.bricks()
+
+                // payment settings
+                const settings = {
+                    initialization: {
+                        amount: Number(selectedInstDetails.amount) || 0.01,
+                    },
+                    callbacks: {
+                        onSubmit: async (cardFormData: any) => {
+                            // cardFormData has token, payment_method_id, payer, installments, issuer_id...
+                            try {
+                                setIsLoading(true)
+                                setError("")
+
+                                // Build payload matching your backend
+                                const payload = {
+                                    transaction_amount: Number(cardFormData.transaction_amount || selectedInstDetails.amount),
+                                    token: cardFormData.card?.token || cardFormData.token,
+                                    description: typeof cardFormData.description === "string" ? cardFormData.description : (`Pago Cuota ${selectedInstDetails.installmentNumber}`),
+                                    installments: Number(cardFormData.installments || 1),
+                                    payment_method_id: cardFormData.payment_method_id,
+                                    issuer_id: cardFormData.issuer_id || null,
+                                    payer: cardFormData.payer || {
+                                        email: cardFormData.additional_info?.payer?.email || "no-reply@example.com",
+                                        identification: cardFormData.payer?.identification || { type: "DNI", number: "0" }
+                                    },
+                                    external_reference: selectedInstallment
+                                }
+
+                                console.log("➡️ Enviando a backend (payment payload):", { ...payload, token: payload.token ? "[PROTECTED]" : null })
+
+                                const resp = await fetch(`${API_BASE}/api/mercadopago/process_payment`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify(payload)
+                                })
+
+                                const data = await resp.json()
+                                console.log("⬅️ Respuesta backend payment:", data)
+
+                                if (!resp.ok) {
+                                    setError(data.error || data.details || "Error procesando pago")
+                                    setIsLoading(false)
+                                    return
+                                }
+
+                                // success flow
+                                setSuccess("Pago aprobado: " + (data.status || "ok"))
+                                setTimeout(() => {
+                                    setSuccess("")
+                                    setSelectedInstallment("")
+                                    setNotes("")
+                                    onPaymentSuccess()
+                                    onOpenChange(false)
+                                }, 1500)
+
+                            } catch (err: any) {
+                                console.error("Error en onSubmit Brick:", err)
+                                setError("Error al procesar el pago: " + (err.message || String(err)))
+                            } finally {
+                                setIsLoading(false)
+                            }
+                        },
+                        onError: (err: any) => {
+                            console.error("BRICK ERROR:", err)
+                            setError("Error en MercadoPago: " + (err.message || "Intenta de nuevo"))
+                        },
+                        onReady: () => {
+                            console.log("BRICK ready")
+                        }
+                    },
+                    paymentMethods: {
+                        ticket: "excluded",
+                        bank_transfer: "excluded",
+                    }
+                }
+
+                // mount the brick (first clear)
+                const container = document.getElementById(brickContainerId)
+                if (container) container.innerHTML = ""
+                await bricksBuilder.create("payment", brickContainerId, settings)
+                brickMountedRef.current = true
+
+            } catch (err) {
+                console.error("Error creating Brick:", err)
+                setError("No se pudo inicializar el formulario de pago.")
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        tryCreate()
+
+        // cleanup on unmount/changes
+        return () => {
+            const c = document.getElementById(brickContainerId)
+            if (c) c.innerHTML = ""
+            brickMountedRef.current = false
+        }
+    }, [paymentMethod, selectedInstallment, selectedInstDetails, MP_PUBLIC_KEY, API_BASE, onOpenChange, onPaymentSuccess])
 
     const handleSubmit = async () => {
         if (!selectedInstallment) {
@@ -69,8 +254,6 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
             if (paymentMethod === "Transferencia" && operationNumber) {
                 finalNotes = `[Op: ${operationNumber}] ${finalNotes}`.trim()
             }
-            // Card manual logic - keep it for explicit "manual card" handling if we split it
-            // But if method is Tarjeta and we use MP, this manual flow might be redundant or for 'Offline Card'
             if (paymentMethod === "Tarjeta" && cardLastDigits) {
                 finalNotes = `[Card: **${cardLastDigits}] ${finalNotes}`.trim()
             }
@@ -81,18 +264,15 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                 return
             }
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            const response = await fetch(`${apiUrl}/api/installments/${selectedInstallment}/pay`, {
+            // Non-card flows call your existing endpoint for registering payment method offline
+            const response = await fetch(`${API_BASE}/api/installments/${selectedInstallment}/pay`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ paymentMethod, notes: finalNotes }),
             })
 
             const data = await response.json()
-
-            if (!response.ok) {
-                throw new Error(data.error || "Error al procesar el pago")
-            }
+            if (!response.ok) throw new Error(data.error || "Error al procesar el pago")
 
             setSuccess("Pago registrado exitosamente")
             setTimeout(() => {
@@ -159,7 +339,7 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                             </Select>
                         </div>
 
-                        {/* Contenido Dinámico por Método */}
+                        {/* Dynamic content */}
                         {paymentMethod === "Yape/Plin" && (
                             <div className="flex flex-col items-center gap-2 py-2 border rounded-lg bg-gray-50 dark:bg-gray-800/50">
                                 <div className="bg-white p-2 rounded-lg shadow-sm">
@@ -213,27 +393,13 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                         {paymentMethod === "Tarjeta" && (
                             <div className="py-2">
                                 {selectedInstallment && selectedInstDetails ? (
-                                    <MercadoPagoButton
-                                        amount={selectedInstDetails.amount}
-                                        description={`Pago Cuota ${selectedInstDetails.installmentNumber} - ${loan?.bankName}`}
-                                        externalReference={selectedInstallment}
-                                        onSuccess={() => {
-                                            setSuccess("¡Pago con tarjeta aprobado!");
-                                            setTimeout(() => {
-                                                setSuccess("")
-                                                setSelectedInstallment("")
-                                                setNotes("")
-                                                onPaymentSuccess() // Recarga dashboard
-                                                onOpenChange(false) // Cierra modal
-                                            }, 2000)
-                                        }}
-                                        onError={(err) => {
-                                            setError("Error en el pago: " + (err.message || 'Inténtalo de nuevo.'));
-                                        }}
-                                    />
+                                    <>
+                                        <div id={brickContainerId} className="my-2" />
+                                        <p className="text-xs text-gray-500">El formulario de pago se cargará aquí. No cierres la ventana hasta completar la operación.</p>
+                                    </>
                                 ) : (
                                     <div className="text-center text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
-                                        Selecciona una cuota para ver el botón de pago
+                                        Selecciona una cuota para ver el formulario de pago
                                     </div>
                                 )}
                             </div>
@@ -293,4 +459,3 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
         </Dialog>
     )
 }
-
