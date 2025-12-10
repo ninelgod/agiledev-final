@@ -390,6 +390,7 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                             </div>
                         )}
 
+
                         {paymentMethod === "Tarjeta" && (
                             <div className="py-2">
                                 {selectedInstallment && selectedInstDetails ? (
