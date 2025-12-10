@@ -27,6 +27,7 @@ import authRoutes from './routes/auth';
 import loansRoutes from './routes/loans';
 import installmentsRoutes from './routes/installments';
 import loanUtilsRoutes from './routes/loan-utils';
+import notificationsRoutes from './routes/notifications';
 
 // Mount routes
 app.use('/api/mercadopago', mercadoPagoRoutes);
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/loans', loansRoutes);
 app.use('/api/installments', installmentsRoutes);
 app.use('/api/loan-utils', loanUtilsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 
 // Error handling middleware
@@ -46,6 +48,10 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: 'Not found' });
 });
+
+// Start Cron Jobs
+import { startCronJobs } from './services/cron';
+startCronJobs();
 
 // Start server
 app.listen(PORT, () => {

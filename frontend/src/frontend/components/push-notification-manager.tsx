@@ -39,7 +39,8 @@ export function PushNotificationManager({ userId }: { userId: number }) {
 
                             // SYNC: Ensure backend knows about this subscription for CURRENT user
                             // This fixes the issue where browser has sub but DB doesn't (different user or lost sync)
-                            fetch('/api/notifications/subscribe', {
+                            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                            fetch(`${apiUrl}/api/notifications/subscribe`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -58,6 +59,13 @@ export function PushNotificationManager({ userId }: { userId: number }) {
 
     const subscribeToPush = async () => {
         setIsLoading(true)
+
+        if (Notification.permission === 'denied') {
+            toast.error('Las notificaciones están bloqueadas. Habilítalas en la configuración de tu navegador.')
+            setIsLoading(false)
+            return
+        }
+
         if (!registration) {
             toast.error('Error: Service Worker no registrado. Recarga la página.')
             setIsLoading(false)
@@ -65,16 +73,23 @@ export function PushNotificationManager({ userId }: { userId: number }) {
         }
 
         try {
-            // FORCE hardcoded key to rule out Vercel Env Var issues
-            let vapidKey = 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
+            // Check permission first
+            const permission = await Notification.requestPermission()
+            if (permission !== 'granted') {
+                toast.error('Permiso de notificaciones denegado.')
+                setIsLoading(false)
+                return
+            }
 
-            // let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
+            // FORCE hardcoded key to rule out Vercel Env Var issues
+            let vapidKey = 'BET7cT1TmL_Nkv4fxkOKCx20J0Dl7R7mVh4nsKzL8qL92tlrlNA0Msiw96FmQGlFonsOzBY7p9S7QWNwxnvItYU'
 
             // Clean the key just in case (remove quotes, whitespace)
             vapidKey = vapidKey.replace(/['"\s]/g, '')
 
-            console.log('[DEBUG] Vapid Key being used (first 10 chars):', vapidKey.substring(0, 10))
+            console.log('[DEBUG] Vapid Key Length:', vapidKey.length)
             const convertedKey = urlBase64ToUint8Array(vapidKey)
+            console.log('[DEBUG] Converted Key Length:', convertedKey.length)
 
             // CRITICAL FIX: Unsubscribe existing ghost subscriptions first
             const existingSub = await registration.pushManager.getSubscription()
@@ -83,15 +98,18 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                 await existingSub.unsubscribe()
             }
 
+            console.log('[DEBUG] Subscribing with key...')
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedKey
             })
+            console.log('[DEBUG] Subscription successful:', sub)
 
             setSubscription(sub)
             setIsSubscribed(true)
 
-            await fetch('/api/notifications/subscribe', {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            await fetch(`${apiUrl}/api/notifications/subscribe`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -103,12 +121,7 @@ export function PushNotificationManager({ userId }: { userId: number }) {
             toast.success('Notificaciones activadas correctamente')
         } catch (error: any) {
             console.error('Error subscribing to push:', error)
-
-            if (error.name === 'NotAllowedError') {
-                toast.error('Permiso denegado. Habilita notificaciones en tu navegador.')
-            } else {
-                toast.error(`Error al activar: ${error.message || 'Desconocido'}`)
-            }
+            toast.error(`Error al activar: ${error.message || 'Error desconocido'}`)
         } finally {
             setIsLoading(false)
         }
@@ -157,9 +170,11 @@ export function PushNotificationManager({ userId }: { userId: number }) {
             {isSubscribed && (
                 <button
                     onClick={async () => {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
                         toast.promise(
-                            fetch('/api/notifications/test', {
+                            fetch(`${apiUrl}/api/notifications/test`, {
                                 method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ userId }),
                             }).then(async r => {
                                 if (!r.ok) {
@@ -182,7 +197,7 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                     }}
                     className="ml-4 text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-200"
                 >
-                    Probar
+                    Enviar Notificación de Prueba
                 </button>
             )}
         </div>

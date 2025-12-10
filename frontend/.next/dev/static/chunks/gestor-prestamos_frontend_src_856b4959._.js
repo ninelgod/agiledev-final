@@ -1870,6 +1870,7 @@ __turbopack_context__.s([
     "PushNotificationManager",
     ()=>PushNotificationManager
 ]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$build$2f$polyfills$2f$process$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = /*#__PURE__*/ __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/next/dist/build/polyfills/process.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$switch$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/switch.tsx [app-client] (ecmascript)");
@@ -1912,7 +1913,8 @@ function PushNotificationManager({ userId }) {
                                     setIsSubscribed(true);
                                     // SYNC: Ensure backend knows about this subscription for CURRENT user
                                     // This fixes the issue where browser has sub but DB doesn't (different user or lost sync)
-                                    fetch('/api/notifications/subscribe', {
+                                    const apiUrl = ("TURBOPACK compile-time value", "http://localhost:4000") || 'http://localhost:4000';
+                                    fetch(`${apiUrl}/api/notifications/subscribe`, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json'
@@ -1940,32 +1942,47 @@ function PushNotificationManager({ userId }) {
     ]); // Depend on userId to resync if user changes
     const subscribeToPush = async ()=>{
         setIsLoading(true);
+        if (Notification.permission === 'denied') {
+            __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].error('Las notificaciones están bloqueadas. Habilítalas en la configuración de tu navegador.');
+            setIsLoading(false);
+            return;
+        }
         if (!registration) {
             __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].error('Error: Service Worker no registrado. Recarga la página.');
             setIsLoading(false);
             return;
         }
         try {
+            // Check permission first
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].error('Permiso de notificaciones denegado.');
+                setIsLoading(false);
+                return;
+            }
             // FORCE hardcoded key to rule out Vercel Env Var issues
-            let vapidKey = 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms';
-            // let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
+            let vapidKey = 'BET7cT1TmL_Nkv4fxkOKCx20J0Dl7R7mVh4nsKzL8qL92tlrlNA0Msiw96FmQGlFonsOzBY7p9S7QWNwxnvItYU';
             // Clean the key just in case (remove quotes, whitespace)
             vapidKey = vapidKey.replace(/['"\s]/g, '');
-            console.log('[DEBUG] Vapid Key being used (first 10 chars):', vapidKey.substring(0, 10));
+            console.log('[DEBUG] Vapid Key Length:', vapidKey.length);
             const convertedKey = urlBase64ToUint8Array(vapidKey);
+            console.log('[DEBUG] Converted Key Length:', convertedKey.length);
             // CRITICAL FIX: Unsubscribe existing ghost subscriptions first
             const existingSub = await registration.pushManager.getSubscription();
             if (existingSub) {
                 console.log('[DEBUG] Unsubscribing existing subscription/ghost...');
                 await existingSub.unsubscribe();
             }
+            console.log('[DEBUG] Subscribing with key...');
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedKey
             });
+            console.log('[DEBUG] Subscription successful:', sub);
             setSubscription(sub);
             setIsSubscribed(true);
-            await fetch('/api/notifications/subscribe', {
+            const apiUrl = ("TURBOPACK compile-time value", "http://localhost:4000") || 'http://localhost:4000';
+            await fetch(`${apiUrl}/api/notifications/subscribe`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1978,11 +1995,7 @@ function PushNotificationManager({ userId }) {
             __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].success('Notificaciones activadas correctamente');
         } catch (error) {
             console.error('Error subscribing to push:', error);
-            if (error.name === 'NotAllowedError') {
-                __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].error('Permiso denegado. Habilita notificaciones en tu navegador.');
-            } else {
-                __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].error(`Error al activar: ${error.message || 'Desconocido'}`);
-            }
+            __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].error(`Error al activar: ${error.message || 'Error desconocido'}`);
         } finally{
             setIsLoading(false);
         }
@@ -2019,7 +2032,7 @@ function PushNotificationManager({ userId }) {
                 disabled: isLoading
             }, void 0, false, {
                 fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/push-notification-manager.tsx",
-                lineNumber: 144,
+                lineNumber: 157,
                 columnNumber: 13
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -2028,13 +2041,17 @@ function PushNotificationManager({ userId }) {
                 children: isLoading ? 'Procesando...' : isSubscribed ? 'Notificaciones activadas' : 'Activar notificaciones'
             }, void 0, false, {
                 fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/push-notification-manager.tsx",
-                lineNumber: 150,
+                lineNumber: 163,
                 columnNumber: 13
             }, this),
             isSubscribed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                 onClick: async ()=>{
-                    __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].promise(fetch('/api/notifications/test', {
+                    const apiUrl = ("TURBOPACK compile-time value", "http://localhost:4000") || 'http://localhost:4000';
+                    __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["toast"].promise(fetch(`${apiUrl}/api/notifications/test`, {
                         method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify({
                             userId
                         })
@@ -2056,16 +2073,16 @@ function PushNotificationManager({ userId }) {
                     });
                 },
                 className: "ml-4 text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-200",
-                children: "Probar"
+                children: "Enviar Notificación de Prueba"
             }, void 0, false, {
                 fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/push-notification-manager.tsx",
-                lineNumber: 158,
+                lineNumber: 171,
                 columnNumber: 17
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/push-notification-manager.tsx",
-        lineNumber: 143,
+        lineNumber: 156,
         columnNumber: 9
     }, this);
 }
@@ -2084,13 +2101,11 @@ __turbopack_context__.s([
     "NotificationSettingsDialog",
     ()=>NotificationSettingsDialog
 ]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$build$2f$polyfills$2f$process$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = /*#__PURE__*/ __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/next/dist/build/polyfills/process.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/button.tsx [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/select.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/dialog.tsx [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/input.tsx [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/label.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/src/frontend/components/ui/alert.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$check$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__CheckCircle2$3e$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/lucide-react/dist/esm/icons/circle-check.js [app-client] (ecmascript) <export default as CheckCircle2>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$alert$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__AlertCircle$3e$__ = __turbopack_context__.i("[project]/gestor-prestamos/frontend/node_modules/lucide-react/dist/esm/icons/circle-alert.js [app-client] (ecmascript) <export default as AlertCircle>");
@@ -2098,9 +2113,6 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$front
 ;
 var _s = __turbopack_context__.k.signature();
 "use client";
-;
-;
-;
 ;
 ;
 ;
@@ -2175,16 +2187,14 @@ function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess 
         setError("");
         setSuccess("");
         try {
-            // Combinar código y número
-            const fullPhoneNumber = `${countryCode}${phoneNumber}`;
-            const response = await fetch("/api/auth/profile", {
+            const apiUrl = ("TURBOPACK compile-time value", "http://localhost:4000") || 'http://localhost:4000';
+            const response = await fetch(`${apiUrl}/api/auth/profile`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    id: user?.id,
-                    phoneNumber: fullPhoneNumber
+                    id: user?.id
                 })
             });
             const data = await response.json();
@@ -2215,156 +2225,66 @@ function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess 
                             children: "Configurar Notificaciones"
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 126,
+                            lineNumber: 121,
                             columnNumber: 21
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogDescription"], {
                             children: "Recibe alertas en tu dispositivo cuando tus cuotas estén por vencer."
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 127,
+                            lineNumber: 122,
                             columnNumber: 21
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                    lineNumber: 125,
+                    lineNumber: 120,
                     columnNumber: 17
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                     className: "grid gap-4 py-4",
                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "space-y-4",
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "space-y-2",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
-                                        children: "Número de Celular"
-                                    }, void 0, false, {
-                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                        lineNumber: 135,
-                                        columnNumber: 29
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "flex gap-2",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Select"], {
-                                                value: countryCode,
-                                                onValueChange: setCountryCode,
-                                                children: [
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectTrigger"], {
-                                                        className: "w-[110px]",
-                                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectValue"], {
-                                                            placeholder: "País"
-                                                        }, void 0, false, {
-                                                            fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                                            lineNumber: 139,
-                                                            columnNumber: 41
-                                                        }, this)
-                                                    }, void 0, false, {
-                                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                                        lineNumber: 138,
-                                                        columnNumber: 37
-                                                    }, this),
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
-                                                        children: COUNTRY_CODES.map((country)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectItem"], {
-                                                                value: country.code,
-                                                                children: [
-                                                                    country.country,
-                                                                    " (",
-                                                                    country.code,
-                                                                    ")"
-                                                                ]
-                                                            }, country.code, true, {
-                                                                fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                                                lineNumber: 143,
-                                                                columnNumber: 45
-                                                            }, this))
-                                                    }, void 0, false, {
-                                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                                        lineNumber: 141,
-                                                        columnNumber: 37
-                                                    }, this)
-                                                ]
-                                            }, void 0, true, {
-                                                fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                                lineNumber: 137,
-                                                columnNumber: 33
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
-                                                id: "phoneNumber",
-                                                value: phoneNumber,
-                                                onChange: (e)=>setPhoneNumber(e.target.value),
-                                                placeholder: "999 999 999",
-                                                type: "tel",
-                                                className: "flex-1"
-                                            }, void 0, false, {
-                                                fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                                lineNumber: 149,
-                                                columnNumber: 33
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                        lineNumber: 136,
-                                        columnNumber: 29
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                        className: "text-xs text-muted-foreground",
-                                        children: "Necesario para verificar tu identidad y asociar el dispositivo."
-                                    }, void 0, false, {
-                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                        lineNumber: 158,
-                                        columnNumber: 29
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                lineNumber: 134,
-                                columnNumber: 25
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "border p-4 rounded-md bg-muted/20",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h4", {
-                                        className: "text-sm font-medium mb-2",
-                                        children: "Notificaciones Push"
-                                    }, void 0, false, {
-                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                        lineNumber: 164,
-                                        columnNumber: 29
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                        className: "text-xs text-muted-foreground mb-4",
-                                        children: "Activa las notificaciones en este dispositivo para recibir alertas de pago."
-                                    }, void 0, false, {
-                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                        lineNumber: 165,
-                                        columnNumber: 29
-                                    }, this),
-                                    user && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$push$2d$notification$2d$manager$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PushNotificationManager"], {
-                                        userId: user.id
-                                    }, void 0, false, {
-                                        fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                        lineNumber: 169,
-                                        columnNumber: 38
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                                lineNumber: 163,
-                                columnNumber: 25
-                            }, this)
-                        ]
-                    }, void 0, true, {
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "border p-4 rounded-md bg-muted/20",
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h4", {
+                                    className: "text-sm font-medium mb-2",
+                                    children: "Notificaciones Push"
+                                }, void 0, false, {
+                                    fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
+                                    lineNumber: 130,
+                                    columnNumber: 29
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                    className: "text-xs text-muted-foreground mb-4",
+                                    children: "Activa las notificaciones en este dispositivo para recibir alertas de pago. No es necesario número de teléfono."
+                                }, void 0, false, {
+                                    fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
+                                    lineNumber: 131,
+                                    columnNumber: 29
+                                }, this),
+                                user && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$push$2d$notification$2d$manager$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PushNotificationManager"], {
+                                    userId: user.id
+                                }, void 0, false, {
+                                    fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
+                                    lineNumber: 135,
+                                    columnNumber: 38
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
+                            lineNumber: 129,
+                            columnNumber: 25
+                        }, this)
+                    }, void 0, false, {
                         fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                        lineNumber: 133,
+                        lineNumber: 128,
                         columnNumber: 21
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                    lineNumber: 132,
+                    lineNumber: 127,
                     columnNumber: 17
                 }, this),
                 error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Alert"], {
@@ -2374,20 +2294,20 @@ function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess 
                             className: "h-4 w-4"
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 176,
+                            lineNumber: 142,
                             columnNumber: 25
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AlertDescription"], {
                             children: error
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 177,
+                            lineNumber: 143,
                             columnNumber: 25
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                    lineNumber: 175,
+                    lineNumber: 141,
                     columnNumber: 21
                 }, this),
                 success && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Alert"], {
@@ -2397,20 +2317,20 @@ function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess 
                             className: "h-4 w-4"
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 183,
+                            lineNumber: 149,
                             columnNumber: 25
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AlertDescription"], {
                             children: success
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 184,
+                            lineNumber: 150,
                             columnNumber: 25
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                    lineNumber: 182,
+                    lineNumber: 148,
                     columnNumber: 21
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogFooter"], {
@@ -2422,7 +2342,7 @@ function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess 
                             children: "Cancelar"
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 189,
+                            lineNumber: 155,
                             columnNumber: 21
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$gestor$2d$prestamos$2f$frontend$2f$src$2f$frontend$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -2431,24 +2351,24 @@ function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess 
                             children: isLoading ? "Guardando..." : "Guardar Cambios"
                         }, void 0, false, {
                             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                            lineNumber: 192,
+                            lineNumber: 158,
                             columnNumber: 21
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-                    lineNumber: 188,
+                    lineNumber: 154,
                     columnNumber: 17
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-            lineNumber: 124,
+            lineNumber: 119,
             columnNumber: 13
         }, this)
     }, void 0, false, {
         fileName: "[project]/gestor-prestamos/frontend/src/frontend/components/notification-settings-dialog.tsx",
-        lineNumber: 123,
+        lineNumber: 118,
         columnNumber: 9
     }, this);
 }
