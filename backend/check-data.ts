@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-    // Ver todos los usuarios
+    // Ver todos los usuario
     const users = await prisma.user.findMany({
         select: {
             id: true,
