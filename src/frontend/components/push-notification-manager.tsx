@@ -142,6 +142,30 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                     : (isSubscribed ? 'Notificaciones activadas' : 'Activar notificaciones')
                 }
             </Label>
+
+            {isSubscribed && (
+                <button
+                    onClick={async () => {
+                        toast.promise(
+                            fetch('/api/notifications/test', {
+                                method: 'POST',
+                                body: JSON.stringify({ userId }),
+                            }).then(async r => {
+                                if (!r.ok) throw new Error(await r.text())
+                                return r.json()
+                            }),
+                            {
+                                loading: 'Enviando prueba...',
+                                success: '¡Enviada! Revisa tu barra de estado.',
+                                error: 'Error al enviar prueba'
+                            }
+                        )
+                    }}
+                    className="ml-4 text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-200"
+                >
+                    Probar
+                </button>
+            )}
         </div>
     )
 }
