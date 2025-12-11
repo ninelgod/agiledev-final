@@ -539,6 +539,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
                 </div>
               )}
             </CardContent>
+          )}
         </Card>
 
         {/* Lista de Documentos (Facturas/Recibos) */}
