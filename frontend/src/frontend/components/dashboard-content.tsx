@@ -132,7 +132,9 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   const [selectedLoanInstallments, setSelectedLoanInstallments] = useState<Installment[]>([])
   const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [loanToDelete, setLoanToDelete] = useState<number | null>(null) // Changed to number
+  const [loanToDelete, setLoanToDelete] = useState<number | null>(null)
+  const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null)
+  const [deleteInvoiceDialogOpen, setDeleteInvoiceDialogOpen] = useState(false) // Changed to number
   const [loansExpanded, setLoansExpanded] = useState(true)
   const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [resetStep, setResetStep] = useState('request')
@@ -260,6 +262,30 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
     } catch (err) {
       console.error(err)
       setError("Error al eliminar el préstamo")
+    }
+  }
+
+  const confirmDeleteInvoice = (invoiceId: number) => {
+    setInvoiceToDelete(invoiceId)
+    setDeleteInvoiceDialogOpen(true)
+  }
+
+  const handleDeleteInvoice = async () => {
+    if (!invoiceToDelete) return
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/api/invoices/${invoiceToDelete}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed to delete invoice")
+
+      if (user) loadData(user.id.toString())
+      setDeleteInvoiceDialogOpen(false)
+      setInvoiceToDelete(null)
+      setSuccessMessage("Documento eliminado correctamente")
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err) {
+      console.error(err)
+      setError("Error al eliminar el documento")
     }
   }
 
@@ -571,36 +597,74 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
                         Vence: {formatDate(inv.dueDate)}
                       </p>
                     </div>
-                    <div className="text-right mt-2 md:mt-0">
-                      <p className="text-xl font-bold">{formatCurrency(inv.totalAmount)}</p>
-                      <p className="text-xs text-gray-400">{inv.items ? JSON.parse(JSON.stringify(inv.items)).length : 0} items</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 text-right mt-2 md:mt-0">
+                      <div>
+                        <p className="text-xl font-bold">{formatCurrency(inv.totalAmount)}</p>
+                        <p className="text-xs text-gray-400">{inv.items ? JSON.parse(JSON.stringify(inv.items)).length : 0} items</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => confirmDeleteInvoice(inv.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0">
+                         <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                ))}
-              </div>
+            ))}
+          </div>
             )}
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
-        {/* Diálogos */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro de eliminar?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción borrará el préstamo y todo su historial de pagos. No se puede deshacer.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteLoan} className="bg-red-600 hover:bg-red-700 text-white">
-                Sí, Eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      {/* Diálogos */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro de eliminar este préstamo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción borrará el préstamo y todo su historial de pagos. No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLoan} className="bg-red-600 hover:bg-red-700 text-white">
+              Sí, Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        {resetPasswordDialog()}
+      <AlertDialog open={deleteInvoiceDialogOpen} onOpenChange={setDeleteInvoiceDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro de eliminar este documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará el registro de la factura/recibo permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteInvoice} className="bg-red-600 hover:bg-red-700 text-white">
+              Sí, Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Estás seguro de eliminar?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta acción borrará el préstamo y todo su historial de pagos. No se puede deshacer.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteLoan} className="bg-red-600 hover:bg-red-700 text-white">
+            Sí, Eliminar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+        { resetPasswordDialog() }
 
         <LoanPaymentDialog
           open={paymentDialogOpen}
@@ -617,20 +681,22 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
           onUpdateSuccess={handleNotificationUpdate}
         />
 
-        {user && (
-          <InvoiceDialog
-            open={invoiceDialogOpen}
-            onOpenChange={setInvoiceDialogOpen}
-            type={invoiceType}
-            userId={user.id}
-            onSuccess={() => {
-              setSuccessMessage("Documento registrado con éxito")
-              setTimeout(() => setSuccessMessage(null), 3000)
-            }}
-          />
-        )}
-      </div>
-    </div>
+  {
+    user && (
+      <InvoiceDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        type={invoiceType}
+        userId={user.id}
+        onSuccess={() => {
+          setSuccessMessage("Documento registrado con éxito")
+          setTimeout(() => setSuccessMessage(null), 3000)
+        }}
+      />
+    )
+  }
+      </div >
+    </div >
   )
 }
 
