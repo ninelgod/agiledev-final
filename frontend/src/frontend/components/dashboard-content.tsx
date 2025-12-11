@@ -14,6 +14,8 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  FileText,
+  Receipt
 } from "lucide-react"
 
 // Importaciones de UI
@@ -34,6 +36,7 @@ import {
 
 // --- CORRECCIÓN DE IMPORTACIONES (SIN LLAVES) ---
 import { LoanPaymentDialog } from "@/frontend/components/loan-payment-dialog"
+import { InvoiceDialog } from "@/frontend/components/invoice-dialog"
 import { NotificationSettingsDialog } from "@/frontend/components/notification-settings-dialog"
 import { CalendarView } from "@/frontend/components/calendar-view"
 
@@ -114,6 +117,10 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   const [installments, setInstallments] = useState<Installment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Invoice State
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [invoiceType, setInvoiceType] = useState<'FACTURA' | 'RECIBO'>('FACTURA')
 
   // Estados UI
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -243,6 +250,11 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
       console.error(err)
       setError("Error al eliminar el préstamo")
     }
+  }
+
+  const handleOpenInvoice = (type: 'FACTURA' | 'RECIBO') => {
+    setInvoiceType(type)
+    setInvoiceDialogOpen(true)
   }
 
   const resetPasswordDialog = () => {
@@ -401,12 +413,20 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
                 </div>
                 <CardDescription>Detalles de todos tus préstamos y fechas de pago</CardDescription>
               </div>
-              <Button onClick={() => router.push("/dashboard/add-loan")} className="md:flex hidden bg-blue-600 hover:bg-blue-700">
-                <Plus className="mr-2 h-4 w-4" /> Agregar Préstamo
-              </Button>
-              <Button onClick={() => router.push("/dashboard/add-loan")} size="sm" className="md:hidden bg-blue-600">
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => handleOpenInvoice('FACTURA')} className="bg-purple-600 hover:bg-purple-700 md:flex hidden">
+                  <FileText className="mr-2 h-4 w-4" /> Factura
+                </Button>
+                <Button onClick={() => handleOpenInvoice('RECIBO')} className="bg-orange-600 hover:bg-orange-700 md:flex hidden">
+                  <Receipt className="mr-2 h-4 w-4" /> Recibo
+                </Button>
+                <Button onClick={() => router.push("/dashboard/add-loan")} className="md:flex hidden bg-blue-600 hover:bg-blue-700">
+                  <Plus className="mr-2 h-4 w-4" /> Agregar Préstamo
+                </Button>
+                <Button onClick={() => router.push("/dashboard/add-loan")} size="sm" className="md:hidden bg-blue-600">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
 
@@ -545,6 +565,19 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
           user={user}
           onUpdateSuccess={handleNotificationUpdate}
         />
+
+        {user && (
+          <InvoiceDialog
+            open={invoiceDialogOpen}
+            onOpenChange={setInvoiceDialogOpen}
+            type={invoiceType}
+            userId={user.id}
+            onSuccess={() => {
+              setSuccessMessage("Documento registrado con éxito")
+              setTimeout(() => setSuccessMessage(null), 3000)
+            }}
+          />
+        )}
       </div>
     </div>
   )

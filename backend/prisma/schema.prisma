@@ -117,6 +117,14 @@ model Invoice {
   notes          String?   @db.Text
   items          Json?
   status         String    @default("PENDING") @db.VarChar(50)
+  
+  // Specialized fields
+  documentType   String    @default("FACTURA") @map("document_type") @db.VarChar(50)
+  paymentMethod  String?   @map("payment_method") @db.VarChar(100)
+  period         String?   @db.VarChar(100)
+  subtotal       Decimal?  @db.Decimal(10, 2)
+  tax            Decimal?  @db.Decimal(10, 2)
+
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 

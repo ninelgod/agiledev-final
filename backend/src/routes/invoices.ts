@@ -20,7 +20,12 @@ router.post('/', async (req, res) => {
             currency,
             totalAmount,
             items,
-            notes
+            notes,
+            documentType,
+            paymentMethod,
+            period,
+            subtotal,
+            tax
         } = req.body;
 
         // Basic validation
@@ -42,7 +47,12 @@ router.post('/', async (req, res) => {
                 totalAmount: totalAmount,
                 items: items || [],
                 notes,
-                status: "PENDING"
+                status: "PENDING",
+                documentType: documentType || "FACTURA",
+                paymentMethod,
+                period,
+                subtotal,
+                tax
             }
         });
 
