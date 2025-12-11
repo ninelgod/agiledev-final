@@ -1,1 +1,4 @@
-{}
+{
+  "/dashboard/add-loan/page": "app/dashboard/add-loan/page.js",
+  "/dashboard/page": "app/dashboard/page.js"
+}

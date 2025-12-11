@@ -23,6 +23,14 @@ router.post('/create-preference', async (req: Request, res: Response) => {
             items,
             back_urls,
             auto_return,
+            payment_methods: {
+                excluded_payment_types: [
+                    { id: "ticket" },
+                    { id: "atm" },
+                    { id: "bank_transfer" }
+                ],
+                installments: 12
+            }
         };
 
         if (external_reference) {
@@ -95,12 +103,12 @@ router.post('/process_payment', async (req: Request, res: Response) => {
 
         const paymentData = {
             body: {
-                transaction_amount: Math.round(amount * 100) / 100,
+                transaction_amount: Number(amount.toFixed(2)),
                 token,
                 description,
                 installments: Number(installments),
                 payment_method_id,
-                issuer_id,
+                issuer_id: issuer_id ? Number(issuer_id) : undefined,
                 payer: {
                     email: payer.email,
                     identification: {
@@ -124,10 +132,21 @@ router.post('/process_payment', async (req: Request, res: Response) => {
         // LOG 4 — ver la respuesta completa de MercadoPago
         console.log('✅ [MP RESPONSE]:', result);
 
-        /**
-         * Aquí sigue tu lógica de actualizar BD si está aprobado
-         * (lo mantengo igual)
-         */
+        if (result.status === 'approved' && external_reference) {
+            const installmentId = Number(external_reference);
+            if (!isNaN(installmentId)) {
+                await prisma.installment.update({
+                    where: { id: installmentId },
+                    data: {
+                        isPaid: true,
+                        paidDate: new Date()
+                    }
+                });
+                console.log(`✅ Installment ${installmentId} marked as PAID.`);
+            } else {
+                console.warn(`⚠️ Payment approved but invalid external_reference: ${external_reference}`);
+            }
+        }
 
         return res.status(201).json({
             id: result.id,
@@ -138,6 +157,16 @@ router.post('/process_payment', async (req: Request, res: Response) => {
     } catch (err: any) {
 
         // LOG 5 — error ultra detallado
+        const fs = require('fs');
+        const path = require('path');
+        const logPath = path.join(__dirname, '../../payment-errors.log');
+        const logEntry = `\n[${new Date().toISOString()}] ERROR PROCESSING PAYMENT:\nMessage: ${err.message}\nMP Response: ${JSON.stringify(err.response ? err.response.data : 'No data')}\nStack: ${err.stack}\n-------------------\n`;
+        try {
+            fs.appendFileSync(logPath, logEntry);
+        } catch (fileErr) {
+            console.error("Could not write to log file:", fileErr);
+        }
+
         console.error('❌ [ERROR PROCESSING PAYMENT]:', {
             message: err.message,
             stack: err.stack,

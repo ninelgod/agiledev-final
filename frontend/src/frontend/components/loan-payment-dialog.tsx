@@ -56,6 +56,8 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
 
     const pendingInstallments = installments.filter(i => !i.isPaid).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
 
+
+
     // Get selected installment details
     const selectedInstDetails = pendingInstallments.find(i => i.id.toString() === selectedInstallment)
 
@@ -71,6 +73,8 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
 
     // Initialize / destroy Payment Brick when user selects Tarjeta + a valid installment
     useEffect(() => {
+        let isCancelled = false;
+
         // Only run on client and if method is Tarjeta and we have a selected installment
         if (typeof window === "undefined") return
         if (!window.MercadoPago && MP_PUBLIC_KEY) {
@@ -93,7 +97,10 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
             // unmount any previous brick
             try {
                 const el = document.getElementById(brickContainerId)
-                if (!el) return
+                if (!el) {
+                    // Container not ready yet, usually happens on first render of tab
+                    return;
+                }
             } catch (e) {
                 // ignore
             }
@@ -128,6 +135,9 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
             })
 
             await waitForMP()
+
+            if (isCancelled) return; // Prevent race condition if effect cleanup ran
+
             const MercadoPago = (window as any).MercadoPago
             if (!MercadoPago) {
                 console.error("MercadoPago SDK not loaded")
@@ -136,14 +146,22 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
             }
 
             try {
+                // Verify container exists explicitly before creating
+                const container = document.getElementById(brickContainerId)
+                if (!container) {
+                    console.warn("Brick container not found, aborting creation")
+                    return
+                }
+
                 // instantiate mp
                 const mp = new MercadoPago(MP_PUBLIC_KEY, { locale: "es-PE" })
                 const bricksBuilder = mp.bricks()
 
                 // payment settings
+                console.log("Initializing CardPayment Brick with amount:", selectedInstDetails.amount);
                 const settings = {
                     initialization: {
-                        amount: Number(selectedInstDetails.amount) || 0.01,
+                        amount: Number(selectedInstDetails.amount),
                     },
                     callbacks: {
                         onSubmit: async (cardFormData: any) => {
@@ -155,13 +173,13 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                                 // Build payload matching your backend
                                 const payload = {
                                     transaction_amount: Number(cardFormData.transaction_amount || selectedInstDetails.amount),
-                                    token: cardFormData.card?.token || cardFormData.token,
-                                    description: typeof cardFormData.description === "string" ? cardFormData.description : (`Pago Cuota ${selectedInstDetails.installmentNumber}`),
+                                    token: cardFormData.token, // cardPayment often puts token at top level
+                                    description: `Pago Cuota ${selectedInstDetails.installmentNumber}`,
                                     installments: Number(cardFormData.installments || 1),
                                     payment_method_id: cardFormData.payment_method_id,
                                     issuer_id: cardFormData.issuer_id || null,
                                     payer: cardFormData.payer || {
-                                        email: cardFormData.additional_info?.payer?.email || "no-reply@example.com",
+                                        email: "no-reply@example.com",
                                         identification: cardFormData.payer?.identification || { type: "DNI", number: "0" }
                                     },
                                     external_reference: selectedInstallment
@@ -202,30 +220,62 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                             }
                         },
                         onError: (err: any) => {
-                            console.error("BRICK ERROR:", err)
-                            setError("Error en MercadoPago: " + (err.message || "Intenta de nuevo"))
+                            // Filter out empty errors (common in MP Bricks when checking connection)
+                            if (!err || (typeof err === 'object' && Object.keys(err).length === 0)) {
+                                console.warn("Brick onError triggered with empty object (ignoring):", err);
+                                return;
+                            }
+                            console.error("BRICK ERROR:", JSON.stringify(err));
+                            setError("Error en MercadoPago: " + (err.message || "Intenta de nuevo"));
                         },
                         onReady: () => {
                             console.log("BRICK ready")
                         }
                     },
-                    paymentMethods: {
-                        ticket: "excluded",
-                        bank_transfer: "excluded",
-                    }
+                    customization: {
+                        visual: {
+                            style: {
+                                theme: "default",
+                            },
+                        }
+                    },
                 }
 
                 // mount the brick (first clear)
-                const container = document.getElementById(brickContainerId)
-                if (container) container.innerHTML = ""
-                await bricksBuilder.create("payment", brickContainerId, settings)
-                brickMountedRef.current = true
+                // Double check container again to be absolutely safe
+                if (document.getElementById(brickContainerId)) {
+                    if (isCancelled) return;
 
-            } catch (err) {
+                    try {
+                        container.innerHTML = ""
+                        await bricksBuilder.create("cardPayment", brickContainerId, settings)
+                        brickMountedRef.current = true
+                    } catch (createErr: any) {
+                        // Suppress specific error about missing container (race condition)
+                        if (createErr.message?.includes("container") ||
+                            createErr.message?.includes("find the Brick") ||
+                            String(createErr).includes("container")) {
+                            console.warn("Brick creation aborted: Container not found (component unmounted).")
+                            return;
+                        }
+                        throw createErr; // Rethrow real errors
+                    }
+                } else {
+                    console.warn("Brick container not found during mount phase")
+                }
+
+            } catch (err: any) {
+                // Suppress specific error about missing container (race condition)
+                if (err.message?.includes("container") ||
+                    err.message?.includes("find the Brick") ||
+                    String(err).includes("container")) {
+                    // Ignore benign race condition error
+                    return;
+                }
                 console.error("Error creating Brick:", err)
                 setError("No se pudo inicializar el formulario de pago.")
             } finally {
-                setIsLoading(false)
+                if (!isCancelled) setIsLoading(false)
             }
         }
 
@@ -233,6 +283,7 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
 
         // cleanup on unmount/changes
         return () => {
+            isCancelled = true;
             const c = document.getElementById(brickContainerId)
             if (c) c.innerHTML = ""
             brickMountedRef.current = false
@@ -362,14 +413,14 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                                 <div className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
                                     <div>
                                         <p className="text-xs font-semibold text-gray-500 uppercase">BCP - Soles</p>
-                                        <p className="font-mono font-medium text-sm">193-98231234-0-12</p>
+                                        <p className="font-mono font-medium text-sm">CCI: 00257017277796604904</p>
                                         <p className="text-xs text-gray-400 mt-1">Titular: Juan Alegria</p>
                                     </div>
                                     <Button
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
-                                        onClick={() => navigator.clipboard.writeText("193-98231234-0-12")}
+                                        onClick={() => navigator.clipboard.writeText("00257017277796604904")}
                                         title="Copiar número de cuenta"
                                     >
                                         <Copy className="h-4 w-4" />

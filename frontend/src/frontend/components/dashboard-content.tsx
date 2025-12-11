@@ -125,6 +125,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   const [loansExpanded, setLoansExpanded] = useState(true)
   const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [resetStep, setResetStep] = useState('request')
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // Carga de datos
   const loadData = async (userId: string) => {
@@ -134,7 +135,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
       console.log("🔄 Conectando con API (CamelCase)...", userId)
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const loansRes = await fetch(`${apiUrl}/api/loans?userId=${userId}`)
+      const loansRes = await fetch(`${apiUrl}/api/loans?userId=${userId}`, { cache: "no-store" })
       if (!loansRes.ok) throw new Error("Error cargando préstamos")
       const loansData = await loansRes.json()
       const rawLoans = loansData.loans || []
@@ -169,7 +170,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
 
       setLoans(enrichedLoans)
 
-      const instRes = await fetch(`${apiUrl}/api/installments?userId=${userId}`)
+      const instRes = await fetch(`${apiUrl}/api/installments?userId=${userId}`, { cache: "no-store" })
       if (instRes.ok) {
         const instData = await instRes.json()
         setInstallments(instData.installments || [])
@@ -213,6 +214,8 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   const handlePaymentSuccess = () => {
     if (user) loadData(user.id.toString())
     setPaymentDialogOpen(false)
+    setSuccessMessage("¡Pago registrado con éxito! Tu cuota ha sido actualizada.")
+    setTimeout(() => setSuccessMessage(null), 5000)
   }
 
   const handleNotificationUpdate = (updatedUser: User) => {

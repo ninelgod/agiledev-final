@@ -7,9 +7,10 @@ node_modules/
 coverage/
 
 # Next.js
-/.next/
-/out/
-/build
+.next/
+out/
+build
+dist
 
 # Production
 /dist
