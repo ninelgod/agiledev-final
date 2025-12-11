@@ -45,6 +45,10 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
 
     // Recibo Specific
     const [period, setPeriod] = useState("")
+    // New fields for Recibo as requested
+    const [reciboMonth, setReciboMonth] = useState("")
+    const [reciboInstallment, setReciboInstallment] = useState("")
+    const [reciboAmount, setReciboAmount] = useState(0)
 
     // Items
     const [items, setItems] = useState<Item[]>([])
@@ -65,24 +69,37 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
             setDueDate("")
             setPaymentMethod("Contado")
             setPeriod("")
+            setReciboMonth("")
+            setReciboInstallment("")
+            setReciboAmount(0)
             setNewItem({ description: "", quantity: 1, price: 0, amount: 0 })
         }
     }, [open, type])
 
     // Recalculate totals
     useEffect(() => {
-        const sum = items.reduce((acc, item) => acc + item.amount, 0)
-        setSubtotal(sum)
-
         if (type === 'FACTURA') {
+            const sum = items.reduce((acc, item) => acc + item.amount, 0)
+            setSubtotal(sum)
             const igv = sum * 0.18
             setTax(igv)
             setTotal(sum + igv)
         } else {
-            setTax(0)
-            setTotal(sum)
+            // For Recibo, if user uses the simple amount input, that's the total.
+            // But we also support the item list if they want.
+            // Let's prioritize the simple amount if > 0, otherwise items sum.
+            if (reciboAmount > 0) {
+                setTax(0)
+                setTotal(reciboAmount)
+                setSubtotal(reciboAmount)
+            } else {
+                const sum = items.reduce((acc, item) => acc + item.amount, 0)
+                setTax(0)
+                setTotal(sum)
+                setSubtotal(sum)
+            }
         }
-    }, [items, type])
+    }, [items, type, reciboAmount])
 
     const handleAddItem = () => {
         if (!newItem.description) return
@@ -98,25 +115,39 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
 
     const handleSave = async () => {
         try {
+            // Construct payload based on type
+            let finalItems = items
+            let finalPeriod = period
+            let finalTotal = total
+
+            if (type === 'RECIBO') {
+                // For Recibo, we use the specific fields if provided
+                if (reciboMonth || reciboInstallment) {
+                    finalPeriod = `Mes: ${reciboMonth} - Cuotas: ${reciboInstallment}`
+                }
+
+                // If using the simple amount input, override items
+                if (reciboAmount > 0) {
+                    finalItems = [{ description: "Pago Mensual", quantity: 1, price: reciboAmount, amount: reciboAmount }]
+                    finalTotal = reciboAmount
+                }
+            }
+
             const payload = {
                 userId,
                 documentType: type,
-                issuerName: "EMPRESA LOCAL", // Or fixed, or input? User didn't specify input for Issuer Name, only "Nombre de Cliente". I will assume "EMPRESA LOCAL" or similar as the Issuer (Us).
-                // Actually, schema requirement says issuerName is required. I'll default it to "Mi Empresa" or allow input if needed.
-                // Let's assume the user IS the issuer. 
+                issuerName: "EMPRESA LOCAL",
                 recipientName,
                 recipientAddress,
                 invoiceNumber,
                 dueDate,
                 paymentMethod: type === 'FACTURA' ? paymentMethod : undefined,
-                period: type === 'RECIBO' ? period : undefined,
-                items,
-                subtotal,
-                tax,
-                totalAmount: total,
-
-                // Required by schema but not in UI request?
-                issuerName: "Sistema AgileDev", // Placeholder
+                period: type === 'RECIBO' ? finalPeriod : undefined,
+                items: finalItems,
+                subtotal: type === 'FACTURA' ? subtotal : finalTotal,
+                tax: type === 'FACTURA' ? tax : 0,
+                totalAmount: finalTotal,
+                issuerName: "Sistema AgileDev",
                 issueDate: new Date().toISOString()
             }
 
@@ -168,10 +199,25 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
                     )}
 
                     {type === 'RECIBO' && (
-                        <div className="space-y-2">
-                            <Label>Periodo</Label>
-                            <Input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="Ej. Mayo 2024" />
-                        </div>
+                        <>
+                            <div className="space-y-2">
+                                <Label>Mes</Label>
+                                <Select value={reciboMonth} onValueChange={setReciboMonth}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecciona Mes" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map(m => (
+                                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Cuotas</Label>
+                                <Input value={reciboInstallment} onChange={(e) => setReciboInstallment(e.target.value)} placeholder="Ej. 1 de 12" />
+                            </div>
+                        </>
                     )}
 
                     <div className="space-y-2">
@@ -187,20 +233,41 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
                     )}
                 </div>
 
-                {/* Items Section */}
-                <div className="border rounded-md p-4 bg-muted/20">
-                    <h4 className="font-medium mb-2">Detalle de {type === 'FACTURA' ? 'Productos' : 'Cobranza'}</h4>
-
-                    <div className="flex gap-2 mb-2 items-end">
-                        <div className="flex-1">
-                            <Label>Descripción</Label>
+                {type === 'RECIBO' && (
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mb-4">
+                        <Label className="text-orange-900 font-semibold mb-2 block">Monto a Pagar Mensual</Label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-gray-500 font-bold">S/</span>
                             <Input
-                                value={newItem.description}
-                                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                placeholder={type === 'FACTURA' ? "Producto..." : "Concepto..."}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="pl-8 text-lg font-bold"
+                                value={reciboAmount || ''}
+                                onChange={(e) => setReciboAmount(Number(e.target.value))}
+                                placeholder="0.00"
                             />
                         </div>
-                        {type === 'FACTURA' && (
+                        <p className="text-sm text-orange-600 mt-2">
+                            Este monto aparecerá en el recibo anual.
+                        </p>
+                    </div>
+                )}
+
+                {/* Items Section - Only for FACTURA or if Recibo amount is 0/empty */}
+                {type === 'FACTURA' && (
+                    <div className="border rounded-md p-4 bg-muted/20">
+                        <h4 className="font-medium mb-2">Detalle de Productos</h4>
+
+                        <div className="flex gap-2 mb-2 items-end">
+                            <div className="flex-1">
+                                <Label>Descripción</Label>
+                                <Input
+                                    value={newItem.description}
+                                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                                    placeholder="Producto..."
+                                />
+                            </div>
                             <div className="w-20">
                                 <Label>Cant.</Label>
                                 <Input
@@ -210,47 +277,47 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
                                     onChange={(e) => setNewItem({ ...newItem, quantity: Number(e.target.value) })}
                                 />
                             </div>
-                        )}
-                        <div className="w-24">
-                            <Label>{type === 'FACTURA' ? 'Precio' : 'Monto'}</Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={newItem.price}
-                                onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
-                            />
+                            <div className="w-24">
+                                <Label>Precio</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={newItem.price}
+                                    onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
+                                />
+                            </div>
+                            <Button onClick={handleAddItem} disabled={!newItem.description} size="icon">
+                                <Plus className="h-4 w-4" />
+                            </Button>
                         </div>
-                        <Button onClick={handleAddItem} disabled={!newItem.description} size="icon">
-                            <Plus className="h-4 w-4" />
-                        </Button>
-                    </div>
 
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Desc</TableHead>
-                                {type === 'FACTURA' && <TableHead className="w-16">Cant</TableHead>}
-                                <TableHead className="w-24 text-right">Importe</TableHead>
-                                <TableHead className="w-12"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {items.map((item, i) => (
-                                <TableRow key={i}>
-                                    <TableCell>{item.description}</TableCell>
-                                    {type === 'FACTURA' && <TableCell>{item.quantity}</TableCell>}
-                                    <TableCell className="text-right">S/ {item.amount.toFixed(2)}</TableCell>
-                                    <TableCell>
-                                        <Button variant="ghost" size="sm" onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
-                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                        </Button>
-                                    </TableCell>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Desc</TableHead>
+                                    <TableHead className="w-16">Cant</TableHead>
+                                    <TableHead className="w-24 text-right">Importe</TableHead>
+                                    <TableHead className="w-12"></TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                            </TableHeader>
+                            <TableBody>
+                                {items.map((item, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell>{item.description}</TableCell>
+                                        <TableCell>{item.quantity}</TableCell>
+                                        <TableCell className="text-right">S/ {item.amount.toFixed(2)}</TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="sm" onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
+                                                <Trash2 className="h-4 w-4 text-red-500" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
 
                 {/* Totals */}
                 <div className="flex justify-end p-4">
