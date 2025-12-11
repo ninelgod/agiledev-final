@@ -6,17 +6,17 @@
   "rootMainFiles": [],
   "pages": {
     "/_error": [
-      "static/chunks/08ef4_next_dist_compiled_a84d6a64._.js",
-      "static/chunks/08ef4_next_dist_shared_lib_c12bd9c7._.js",
-      "static/chunks/08ef4_next_dist_client_ae939732._.js",
-      "static/chunks/08ef4_next_dist_d04a0dde._.js",
-      "static/chunks/08ef4_next_error_a8045645.js",
-      "static/chunks/[next]_entry_page-loader_ts_e3309765._.js",
-      "static/chunks/08ef4_react-dom_83d4fa76._.js",
-      "static/chunks/08ef4_f4608dba._.js",
-      "static/chunks/[root-of-the-server]__ff368a5c._.js",
-      "static/chunks/gestor-prestamos_frontend_pages__error_2da965e7._.js",
-      "static/chunks/turbopack-gestor-prestamos_frontend_pages__error_058dbe68._.js"
+      "static/chunks/node_modules_next_dist_compiled_8ca6b690._.js",
+      "static/chunks/node_modules_next_dist_shared_lib_cf5b50a6._.js",
+      "static/chunks/node_modules_next_dist_client_d0aa886c._.js",
+      "static/chunks/node_modules_next_dist_19fd0646._.js",
+      "static/chunks/node_modules_next_error_1cfbb379.js",
+      "static/chunks/[next]_entry_page-loader_ts_43b523b5._.js",
+      "static/chunks/node_modules_react-dom_4411d9bd._.js",
+      "static/chunks/node_modules_7f09fef0._.js",
+      "static/chunks/[root-of-the-server]__092393de._.js",
+      "static/chunks/pages__error_2da965e7._.js",
+      "static/chunks/turbopack-pages__error_9f8f7792._.js"
     ]
   },
   "ampFirstPages": []
