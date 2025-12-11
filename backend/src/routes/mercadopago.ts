@@ -132,6 +132,14 @@ router.post('/process_payment', async (req: Request, res: Response) => {
         // LOG 4 — ver la respuesta completa de MercadoPago
         console.log('✅ [MP RESPONSE]:', result);
 
+        // DEBUG: Write to file for Agent to inspect
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const debugPath = path.join(__dirname, '../../debug-payment.json');
+            fs.writeFileSync(debugPath, JSON.stringify(result, null, 2));
+        } catch (e) { console.error("Write debug failed", e); }
+
         if (result.status === 'approved' && external_reference) {
             const installmentId = Number(external_reference);
             if (!isNaN(installmentId)) {
@@ -146,6 +154,8 @@ router.post('/process_payment', async (req: Request, res: Response) => {
             } else {
                 console.warn(`⚠️ Payment approved but invalid external_reference: ${external_reference}`);
             }
+        } else {
+            console.warn(`⚠️ Payment NOT processed locally. Status: ${result.status}, Ref: ${external_reference}`);
         }
 
         return res.status(201).json({

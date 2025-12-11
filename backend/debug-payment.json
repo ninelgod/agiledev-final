@@ -1,0 +1,224 @@
+{
+  "id": 137383436910,
+  "date_created": "2025-12-10T22:24:16.343-04:00",
+  "date_approved": null,
+  "date_last_updated": "2025-12-10T22:24:16.343-04:00",
+  "date_of_expiration": null,
+  "money_release_date": null,
+  "money_release_status": "released",
+  "operation_type": "regular_payment",
+  "issuer_id": "12446",
+  "payment_method_id": "debvisa",
+  "payment_type_id": "debit_card",
+  "payment_method": {
+    "id": "debvisa",
+    "type": "debit_card",
+    "issuer_id": "12446",
+    "data": {
+      "routing_data": {
+        "merchant_account_id": "650246617"
+      }
+    }
+  },
+  "status": "rejected",
+  "status_detail": "cc_rejected_high_risk",
+  "currency_id": "PEN",
+  "description": "Pago Cuota 2",
+  "live_mode": true,
+  "sponsor_id": null,
+  "authorization_code": null,
+  "money_release_schema": null,
+  "taxes_amount": 0,
+  "counter_currency": null,
+  "brand_id": null,
+  "shipping_amount": 0,
+  "build_version": "3.134.0-rc-1",
+  "pos_id": null,
+  "store_id": null,
+  "integrator_id": null,
+  "platform_id": null,
+  "corporation_id": null,
+  "charges_execution_info": {
+    "internal_execution": {
+      "date": "2025-12-10T22:24:16.331-04:00",
+      "execution_id": "01KC5KJCD3WT763DCG52G2DW2T"
+    }
+  },
+  "payer": {
+    "type": null,
+    "id": "3056548700",
+    "operator_id": null,
+    "email": null,
+    "identification": {
+      "number": null,
+      "type": null
+    },
+    "phone": {
+      "number": null,
+      "extension": null,
+      "area_code": null
+    },
+    "first_name": null,
+    "last_name": null,
+    "entity_type": null
+  },
+  "collector_id": 376664174,
+  "marketplace_owner": null,
+  "metadata": {},
+  "additional_info": {
+    "tracking_id": "platform:v24|v24.11.1,so:so;,type:SDK2.11.0,security:none"
+  },
+  "order": {},
+  "external_reference": "118",
+  "transaction_amount": 5.06,
+  "transaction_amount_refunded": 0,
+  "coupon_amount": 0,
+  "differential_pricing_id": null,
+  "financing_group": null,
+  "deduction_schema": null,
+  "installments": 1,
+  "transaction_details": {
+    "payment_method_reference_id": null,
+    "acquirer_reference": null,
+    "net_received_amount": 0,
+    "total_paid_amount": 5.06,
+    "overpaid_amount": 0,
+    "external_resource_url": null,
+    "installment_amount": 5.06,
+    "financial_institution": null,
+    "payable_deferral_period": null
+  },
+  "fee_details": [],
+  "charges_details": [
+    {
+      "id": "137383436910-001",
+      "name": "mercadopago_fee",
+      "type": "fee",
+      "accounts": {
+        "from": "collector",
+        "to": "mp"
+      },
+      "client_id": 0,
+      "date_created": "2025-12-10T22:24:16.345-04:00",
+      "last_updated": "2025-12-10T22:24:16.345-04:00",
+      "amounts": {
+        "original": 1.39,
+        "refunded": 0
+      },
+      "metadata": {
+        "source": "proc-svc-charges",
+        "source_detail": "processing_fee_charge",
+        "reason": ""
+      },
+      "reserve_id": null,
+      "refund_charges": [],
+      "external_charge_id": "01KC5KJCE3FMSXC8S44KK6DS47"
+    }
+  ],
+  "captured": true,
+  "binary_mode": false,
+  "call_for_authorize_id": null,
+  "statement_descriptor": null,
+  "card": {
+    "id": null,
+    "first_six_digits": null,
+    "last_four_digits": "***3",
+    "bin": null,
+    "expiration_month": null,
+    "expiration_year": null,
+    "date_created": null,
+    "date_last_updated": null,
+    "country": null,
+    "tags": [],
+    "cardholder": {
+      "identification": {
+        "number": null,
+        "type": null
+      },
+      "name": null
+    }
+  },
+  "notification_url": null,
+  "refunds": [],
+  "processing_mode": "aggregator",
+  "merchant_account_id": null,
+  "merchant_number": null,
+  "point_of_interaction": {
+    "type": "UNSPECIFIED",
+    "business_info": {
+      "unit": "online_payments",
+      "sub_unit": "sdk",
+      "branch": "Merchant Services"
+    },
+    "transaction_data": {}
+  },
+  "accounts_info": null,
+  "release_info": null,
+  "three_ds_info": {
+    "external_resource_url": null,
+    "creq": null
+  },
+  "tags": null,
+  "api_response": {
+    "status": 201,
+    "headers": {
+      "date": [
+        "Thu, 11 Dec 2025 02:24:17 GMT"
+      ],
+      "content-type": [
+        "application/json;charset=UTF-8"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "x-site-id": [
+        "MPE"
+      ],
+      "x-response-status": [
+        "rejected/cc_rejected_high_risk"
+      ],
+      "x-caller-id": [
+        "376664174"
+      ],
+      "vary": [
+        "Accept,Accept-Encoding"
+      ],
+      "cache-control": [
+        "max-age=0"
+      ],
+      "etag": [
+        "2fd62a4b28e7630fc9d63365dc8b1044"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-request-id": [
+        "d697e968-46aa-4692-9ca3-7626cf71b4a6"
+      ],
+      "x-xss-protection": [
+        "1; mode=block"
+      ],
+      "strict-transport-security": [
+        "max-age=16070400; includeSubDomains; preload, max-age=31536000; includeSubDomains"
+      ],
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "access-control-allow-headers": [
+        "Content-Type"
+      ],
+      "access-control-allow-methods": [
+        "PUT, GET, POST, DELETE, OPTIONS"
+      ],
+      "access-control-max-age": [
+        "86400"
+      ],
+      "timing-allow-origin": [
+        "*"
+      ]
+    }
+  }
+}

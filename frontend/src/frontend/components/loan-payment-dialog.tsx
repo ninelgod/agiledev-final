@@ -202,8 +202,14 @@ export function LoanPaymentDialog({ open, onOpenChange, loan, installments, onPa
                                     return
                                 }
 
-                                // success flow
-                                setSuccess("Pago aprobado: " + (data.status || "ok"))
+                                // success flow only if approved
+                                if (data.status !== 'approved') {
+                                    setError(`Pago rechazado por el procesador (Estado: ${data.status}). Intenta con otra tarjeta.`);
+                                    setIsLoading(false);
+                                    return;
+                                }
+
+                                setSuccess("Pago aprobado exitosamente")
                                 setTimeout(() => {
                                     setSuccess("")
                                     setSelectedInstallment("")
