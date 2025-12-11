@@ -409,7 +409,8 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
         </div>
 
         {/* Si userId sigue marcando error, prueba cambiar userId={user.id} por user={user} */}
-        {user && <CalendarView installments={installments} />}
+        {/* Si userId sigue marcando error, prueba cambiar userId={user.id} por user={user} */}
+        {user && <CalendarView installments={installments} invoices={invoices} />}
 
         {/* Lista de Préstamos */}
         <Card className="shadow-md">

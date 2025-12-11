@@ -40,6 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/frontend/components/ui/tooltip"
+import { Invoice } from "@/frontend/types/invoice"
 
 export interface Installment {
   id: number
@@ -60,9 +61,10 @@ export interface Installment {
 
 interface CalendarViewProps {
   installments: Installment[]
+  invoices: Invoice[]
 }
 
-export function CalendarView({ installments }: CalendarViewProps) {
+export function CalendarView({ installments, invoices }: CalendarViewProps) {
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
@@ -87,37 +89,43 @@ export function CalendarView({ installments }: CalendarViewProps) {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
   }
 
-  const getInstallmentsForDay = (day: number) => {
+  const getItemsForDay = (day: number) => {
     const targetDate = new Date(selectedYear, selectedMonth, day)
+    const normalizedTarget = new Date(selectedYear, selectedMonth, day).getTime()
 
-    return installments.filter(inst => {
-      // Fix: Parse the ISO string (YYYY-MM-DD) manually to avoid timezone shift.
-      // E.g. "2025-12-10T00:00:00Z" -> Year: 2025, Month: 12, Day: 10
-      // Then create new Date(2025, 11, 10) which is Dec 10th 00:00:00 Local Time.
-      // This ensures it appears on the 10th regardless of visual offset.
-
-      let instYear, instMonth, instDay;
-
+    const dayInstallments = installments.filter(inst => {
+      let d: Date
       if (inst.dueDate instanceof Date) {
-        instYear = inst.dueDate.getFullYear();
-        instMonth = inst.dueDate.getMonth();
-        instDay = inst.dueDate.getDate();
+        d = inst.dueDate
       } else {
-        // Assume ISO string
-        const dateStr = String(inst.dueDate).split('T')[0]; // "2025-12-10"
-        const [y, m, d] = dateStr.split('-').map(Number);
-        instYear = y;
-        instMonth = m - 1; // 0-indexed month
-        instDay = d;
+        const dateStr = String(inst.dueDate).split('T')[0]
+        const [y, m, day] = dateStr.split('-').map(Number)
+        d = new Date(y, m - 1, day)
       }
-
-      // Check if this installment's "calendar date" matches the cell's date
       return (
-        instDay === day &&
-        instMonth === selectedMonth &&
-        instYear === selectedYear
+        d.getDate() === day &&
+        d.getMonth() === selectedMonth &&
+        d.getFullYear() === selectedYear
       )
     })
+
+    const dayInvoices = invoices.filter(inv => {
+      let d: Date
+      if (inv.dueDate instanceof Date) {
+        d = inv.dueDate
+      } else {
+        const dateStr = String(inv.dueDate).split('T')[0]
+        const [y, m, day] = dateStr.split('-').map(Number)
+        d = new Date(y, m - 1, day)
+      }
+      return (
+        d.getDate() === day &&
+        d.getMonth() === selectedMonth &&
+        d.getFullYear() === selectedYear
+      )
+    })
+
+    return { installments: dayInstallments, invoices: dayInvoices }
   }
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -165,7 +173,8 @@ export function CalendarView({ installments }: CalendarViewProps) {
 
     // Días del mes
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayInstallments = getInstallmentsForDay(day)
+      const { installments: dayInstallments, invoices: dayInvoices } = getItemsForDay(day)
+      const allItems = [...dayInstallments, ...dayInvoices]
 
       days.push(
         <div key={day} className={getDayClass(day)} onClick={() => handleDayClick(day)}>
@@ -174,74 +183,66 @@ export function CalendarView({ installments }: CalendarViewProps) {
               {day}
             </div>
             <div className="flex-1 space-y-1 overflow-hidden">
-              {dayInstallments.slice(0, 2).map((inst, index) => {
-                // Determine status flags
-                const isPaid = inst.isPaid // Use boolean source of truth
-
-                // Calculate overdue if not paid
+              {/* Render Installments first */}
+              {dayInstallments.slice(0, 2).map((inst) => {
+                // ... existing installment logic ...
+                const isPaid = inst.isPaid
                 const today = new Date()
                 today.setHours(0, 0, 0, 0)
-                // Parse due date safely as we did in getInstallmentsForDay or just assume string comparison if ISO
-                let instDate = new Date(inst.dueDate)
-                // Adjust if necessary or just compare timestamps (assuming inst.dueDate is correct ISO from DB)
-                // To be safe and consistent with getDays logic:
-                const d = new Date(inst.dueDate)
-                // Fix timezone offset for comparison if needed, or if it's already a Date object
-                // If it's a string "YYYY-MM-DD...", new Date() returns UTC usually. 
-                // Let's use simple comparison:
                 const isOverdue = !isPaid && new Date(inst.dueDate) < today
 
-                // Determine Badge Style
                 let badgeClass = "text-xs px-1 py-0 truncate block border-transparent transition-colors shadow-sm text-white"
                 let variant: "default" | "secondary" | "destructive" | "outline" = "default"
 
                 if (isPaid) {
                   badgeClass += " bg-green-600 hover:bg-green-700"
-                  variant = "secondary" // We override class anyway for specific green
+                  variant = "secondary"
                 } else if (isOverdue) {
                   badgeClass += " bg-red-600 hover:bg-red-700"
                   variant = "destructive"
                 } else {
                   badgeClass += " bg-yellow-600 hover:bg-yellow-700"
-                  variant = "default"
                 }
 
-                // Determine Label Text
-                // Identifier: Code > Bank > 'Préstamo'
-                const identifier = inst.loan?.loanCode || inst.loan?.bankName || 'Préstamo'
-                // Status Text
-                const statusText = isPaid
-                  ? "(Pagado ✅)"
-                  : `(S/ ${Number(inst.amount).toFixed(2)})`
-
                 return (
-                  <TooltipProvider key={inst.id}>
+                  <TooltipProvider key={`inst-${inst.id}`}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge
-                          variant={variant}
-                          className={badgeClass}
-                        >
-                          {/* Format: [ID] - C[Num] ([Status]) */}
+                        <Badge variant={variant} className={badgeClass}>
                           <span className="truncate">
-                            {identifier} - C{inst.installmentNumber} {statusText}
+                            {inst.loan?.bankName} - C{inst.installmentNumber}
                           </span>
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <div className="text-xs space-y-1">
-                          <p className="font-semibold">{inst.loan?.bankName}</p>
-                          <p>Código: {inst.loan?.loanCode || 'N/A'}</p>
-                          <p>Cuota #{inst.installmentNumber} de {inst.loan?.numberOfInstallments ?? '?'}</p>
-                          <p>Monto: S/ {Number(inst.amount).toFixed(2)}</p>
-                          <p>Estado: {isPaid ? "Pagado" : isOverdue ? "Vencido" : "Pendiente"}</p>
-                        </div>
+                        <p>{inst.loan?.bankName} - Cuota {inst.installmentNumber}</p>
+                        <p>Monto: S/ {Number(inst.amount).toFixed(2)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 )
               })}
-              {dayInstallments.length > 2 && (
+
+              {/* Render Invoices (if space) */}
+              {dayInvoices.slice(0, Math.max(0, 2 - dayInstallments.length)).map((inv) => (
+                <TooltipProvider key={`inv-${inv.id}`}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge className={`text-xs px-1 py-0 truncate block border-transparent shadow-sm text-white ${inv.documentType === 'FACTURA' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-600 hover:bg-orange-700'}`}>
+                        <span className="truncate">
+                          {inv.issuerName} ({inv.documentType === 'FACTURA' ? 'Fact' : 'Rec'})
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{inv.issuerName}</p>
+                      <p>{inv.documentType} - Total: S/ {Number(inv.totalAmount).toFixed(2)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
+
+              {allItems.length > 2 && (
                 <MoreHorizontal className="h-3 w-3 text-gray-500" />
               )}
             </div>
@@ -254,7 +255,7 @@ export function CalendarView({ installments }: CalendarViewProps) {
   }
 
   const getDayClass = (day: number) => {
-    const dayInstallments = getInstallmentsForDay(day)
+    const { installments: dayInstallments, invoices: dayInvoices } = getItemsForDay(day)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -273,10 +274,11 @@ export function CalendarView({ installments }: CalendarViewProps) {
 
     // Helper to determine status
     const hasUnpaid = dayInstallments.some(i => !i.isPaid)
+    const hasInvoices = dayInvoices.length > 0
     // Only verify "overdue" if it's strictly in the past (before today)
     const isOverdue = hasUnpaid && cellDate < today
     // Pending in current week: Unpaid AND (Today <= Date <= EndOfWeek)
-    const isPendingThisWeek = hasUnpaid && cellDate >= today && cellDate <= endOfWeek
+    const isPendingThisWeek = (hasUnpaid || hasInvoices) && cellDate >= today && cellDate <= endOfWeek
 
     // Base styling
     let baseClass = "h-20 w-full p-1 border rounded-lg transition-colors cursor-pointer flex flex-col"
@@ -351,31 +353,38 @@ export function CalendarView({ installments }: CalendarViewProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {selectedDay && getInstallmentsForDay(selectedDay).map((inst) => (
-              <div key={inst.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{inst.loan?.bankName || 'Unknown Bank'}</p>
-                  <p className="text-sm text-muted-foreground">{inst.loan?.loanType || 'Type'}</p>
-                  <p className="text-sm text-muted-foreground">Cuota mensual: S/ {Number(inst.loan?.monthlyPayment)?.toFixed(2) || '0.00'}</p>
-                  <p className="text-sm text-muted-foreground">Total: S/ {Number(inst.loan?.totalAmount)?.toFixed(2) || '0.00'}</p>
-                </div>
-                <Badge variant={inst.status === 'Pagado' ? 'secondary' : inst.status === 'Vencido' ? 'destructive' : 'default'}>
-                  {inst.status}
-                </Badge>
-              </div>
-            ))}
-            {selectedDay && getInstallmentsForDay(selectedDay).length > 0 && (
-              <div className="flex justify-end pt-4 border-t">
-                <div className="text-right">
-                  <p className="text-lg font-semibold">
-                    Total de pago: S/ {getInstallmentsForDay(selectedDay).reduce((sum, inst) => sum + (Number(inst.loan?.monthlyPayment) || 0), 0).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            )}
-            {selectedDay && getInstallmentsForDay(selectedDay).length === 0 && (
-              <p className="text-center text-muted-foreground py-4">No hay cuotas programadas para este día</p>
-            )}
+            {selectedDay && (() => {
+              const { installments: insts, invoices: invs } = getItemsForDay(selectedDay)
+              const all = [...insts, ...invs]
+              if (all.length === 0) return <p className="text-center text-muted-foreground py-4">No hay eventos para este día</p>
+
+              return (
+                <>
+                  {insts.map((inst) => (
+                    <div key={`inst-${inst.id}`} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                      {/* Existing installment render */}
+                      <div>
+                        <p className="font-medium">{inst.loan?.bankName}</p>
+                        <p className="text-sm text-muted-foreground">Cuota #{inst.installmentNumber}</p>
+                        <p className="text-sm font-bold">S/ {Number(inst.amount).toFixed(2)}</p>
+                      </div>
+                      <Badge variant={inst.isPaid ? 'secondary' : 'default'}>{inst.isPaid ? 'Pagado' : 'Pendiente'}</Badge>
+                    </div>
+                  ))}
+
+                  {invs.map((inv) => (
+                    <div key={`inv-${inv.id}`} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-gray-50 dark:bg-gray-800">
+                      <div>
+                        <p className="font-medium text-purple-700 dark:text-purple-400">{inv.issuerName}</p>
+                        <p className="text-sm text-muted-foreground">{inv.documentType}</p>
+                        <p className="text-sm font-bold">S/ {Number(inv.totalAmount).toFixed(2)}</p>
+                      </div>
+                      <Badge className="bg-purple-600">{inv.documentType}</Badge>
+                    </div>
+                  ))}
+                </>
+              )
+            })()}
           </div>
         </DialogContent>
       </Dialog>
