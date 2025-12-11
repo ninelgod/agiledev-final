@@ -19,6 +19,7 @@ model User {
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   loans                Loan[]
   pushSubscriptions    PushSubscription[]
+  invoices             Invoice[]
 
   @@map("users")
 }
@@ -99,4 +100,25 @@ model PasswordResetCode {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   @@map("password_reset_codes")
+}
+
+model Invoice {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  issuerName     String    @map("issuer_name") @db.VarChar(255)
+  issuerDocument String?   @map("issuer_document") @db.VarChar(50)
+  recipientName  String?   @map("recipient_name") @db.VarChar(255)
+  recipientAddress String? @map("recipient_address") @db.Text
+  invoiceNumber  String    @map("invoice_number") @db.VarChar(50)
+  issueDate      DateTime? @map("issue_date") @db.Date
+  dueDate        DateTime? @map("due_date") @db.Date
+  currency       String    @default("PEN") @db.VarChar(10)
+  totalAmount    Decimal   @map("total_amount") @db.Decimal(10, 2)
+  notes          String?   @db.Text
+  items          Json?
+  status         String    @default("PENDING") @db.VarChar(50)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
 }

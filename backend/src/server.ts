@@ -48,6 +48,7 @@ import loansRoutes from './routes/loans';
 import installmentsRoutes from './routes/installments';
 import loanUtilsRoutes from './routes/loan-utils';
 import notificationsRoutes from './routes/notifications';
+import invoiceRoutes from './routes/invoices';
 
 // Mount routes
 app.use('/api/mercadopago', mercadoPagoRoutes);
@@ -56,6 +57,7 @@ app.use('/api/loans', loansRoutes);
 app.use('/api/installments', installmentsRoutes);
 app.use('/api/loan-utils', loanUtilsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
