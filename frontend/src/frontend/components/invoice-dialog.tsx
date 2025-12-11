@@ -43,12 +43,10 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
     // Factura Specific
     const [paymentMethod, setPaymentMethod] = useState("Contado")
 
-    // Recibo Specific
-    const [period, setPeriod] = useState("")
-    // New fields for Recibo as requested
-    const [reciboMonth, setReciboMonth] = useState("")
-    const [reciboInstallment, setReciboInstallment] = useState("")
+    const [reciboStartDate, setReciboStartDate] = useState("")
+    const [reciboEndDate, setReciboEndDate] = useState("")
     const [reciboAmount, setReciboAmount] = useState(0)
+    const [notes, setNotes] = useState("") // New generic description
 
     // Items
     const [items, setItems] = useState<Item[]>([])
@@ -68,13 +66,14 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
             setInvoiceNumber("")
             setDueDate("")
             setPaymentMethod("Contado")
-            setPeriod("")
-            setReciboMonth("")
-            setReciboInstallment("")
+            setReciboStartDate("")
+            setReciboEndDate("")
             setReciboAmount(0)
+            setNotes("")
             setNewItem({ description: "", quantity: 1, price: 0, amount: 0 })
         }
     }, [open, type])
+
 
     // Recalculate totals
     useEffect(() => {
@@ -115,61 +114,112 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
 
     const handleSave = async () => {
         try {
-            // Construct payload based on type
-            let finalItems = items
-            let finalPeriod = period
-            let finalTotal = total
+            const invoicesToCreate = []
 
-            if (type === 'RECIBO') {
-                // For Recibo, we use the specific fields if provided
-                if (reciboMonth || reciboInstallment) {
-                    finalPeriod = `Mes: ${reciboMonth} - Cuotas: ${reciboInstallment}`
+            if (type === 'RECIBO' && reciboStartDate && reciboEndDate) {
+                // Recurring Logic
+                const start = new Date(reciboStartDate)
+                const end = new Date(reciboEndDate)
+                // Adjust to UTC/Local safely? Input date is YYYY-MM-DD.
+                // We'll iterate month by month.
+
+                let current = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+                const endLimit = new Date(end.getFullYear(), end.getMonth(), end.getDate())
+
+                while (current <= endLimit) {
+                    const monthName = current.toLocaleString('default', { month: 'long', year: 'numeric' })
+
+                    const newItemList = [{
+                        description: notes || "Pago Mensual",
+                        quantity: 1,
+                        price: reciboAmount,
+                        amount: reciboAmount
+                    }]
+
+                    invoicesToCreate.push({
+                        userId,
+                        documentType: type,
+                        issuerName: "EMPRESA LOCAL",
+                        recipientName,
+                        recipientAddress,
+                        invoiceNumber, // Can we make this unique? Maybe append index? Or just same.
+                        dueDate: current.toISOString(), // Due date moves with the loop
+                        period: `Periodo: ${monthName}`,
+                        items: newItemList,
+                        subtotal: reciboAmount,
+                        tax: 0,
+                        totalAmount: reciboAmount,
+                        notes,
+                        issuerName_Schema: "Sistema AgileDev", // mapping fix
+                        issueDate: new Date().toISOString()
+                    })
+
+                    // Next Month
+                    current.setMonth(current.getMonth() + 1)
                 }
 
-                // If using the simple amount input, override items
-                if (reciboAmount > 0) {
-                    finalItems = [{ description: "Pago Mensual", quantity: 1, price: reciboAmount, amount: reciboAmount }]
+            } else {
+                // Standard Logic (Factura or Single Recibo if no dates)
+                // ... reuse existing logic ...
+                let finalItems = items
+                let finalTotal = total
+                let finalSubtotal = subtotal
+                let finalTax = tax
+
+                // Fallback for single recibo amount
+                if (type === 'RECIBO' && reciboAmount > 0) {
+                    finalItems = [{ description: notes || "Pago Mensual", quantity: 1, price: reciboAmount, amount: reciboAmount }]
                     finalTotal = reciboAmount
+                    finalSubtotal = reciboAmount
+                    finalTax = 0
                 }
+
+                invoicesToCreate.push({
+                    userId,
+                    documentType: type,
+                    issuerName: "EMPRESA LOCAL",
+                    recipientName,
+                    recipientAddress,
+                    invoiceNumber,
+                    dueDate: dueDate ? new Date(dueDate).toISOString() : new Date().toISOString(),
+                    paymentMethod: type === 'FACTURA' ? paymentMethod : undefined,
+                    period: undefined, // If any
+                    items: finalItems,
+                    subtotal: finalSubtotal,
+                    tax: finalTax,
+                    totalAmount: finalTotal,
+                    notes,
+                    issuerName_Schema: "Sistema AgileDev",
+                    issueDate: new Date().toISOString()
+                })
             }
 
-            const payload = {
-                userId,
-                documentType: type,
-                issuerName: "EMPRESA LOCAL",
-                recipientName,
-                recipientAddress,
-                invoiceNumber,
-                dueDate,
-                paymentMethod: type === 'FACTURA' ? paymentMethod : undefined,
-                period: type === 'RECIBO' ? finalPeriod : undefined,
-                items: finalItems,
-                subtotal: type === 'FACTURA' ? subtotal : finalTotal,
-                tax: type === 'FACTURA' ? tax : 0,
-                totalAmount: finalTotal,
-                issuerName: "Sistema AgileDev",
-                issueDate: new Date().toISOString()
-            }
+            console.log("Creating Invoices:", invoicesToCreate.length)
 
-            console.log("Saving Invoice:", payload)
+            // Execute all promises
+            await Promise.all(invoicesToCreate.map(invPayload => {
+                // Remap issuerName_Schema to issuerName because of duplicate key lint earlier
+                const { issuerName_Schema, ...rest } = invPayload
+                const finalPayload = { ...rest, issuerName: issuerName_Schema }
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/invoices`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-
-            if (!res.ok) {
-                const err = await res.json()
-                alert("Error: " + err.error)
-                return
-            }
+                return fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/invoices`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(finalPayload)
+                }).then(async res => {
+                    if (!res.ok) {
+                        const err = await res.json()
+                        throw new Error(err.error || "Failed")
+                    }
+                    return res.json()
+                })
+            }))
 
             onSuccess()
             onOpenChange(false)
-        } catch (e) {
+        } catch (e: any) {
             console.error(e)
-            alert("Error saving invoice")
+            alert("Error saving invoice(s): " + e.message)
         }
     }
 
@@ -200,30 +250,27 @@ export function InvoiceDialog({ open, onOpenChange, type, onSuccess, userId }: I
 
                     {type === 'RECIBO' && (
                         <>
-                            <div className="space-y-2">
-                                <Label>Mes</Label>
-                                <Select value={reciboMonth} onValueChange={setReciboMonth}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona Mes" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map(m => (
-                                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="col-span-2 space-y-2">
+                                <Label>Descripción / Notas</Label>
+                                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej. Pago Alquiler Departamento" />
                             </div>
                             <div className="space-y-2">
-                                <Label>Cuotas</Label>
-                                <Input value={reciboInstallment} onChange={(e) => setReciboInstallment(e.target.value)} placeholder="Ej. 1 de 12" />
+                                <Label>Inicio Periodo</Label>
+                                <Input type="date" value={reciboStartDate} onChange={(e) => setReciboStartDate(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Fin Periodo</Label>
+                                <Input type="date" value={reciboEndDate} onChange={(e) => setReciboEndDate(e.target.value)} />
                             </div>
                         </>
                     )}
 
-                    <div className="space-y-2">
-                        <Label>Vencimiento</Label>
-                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-                    </div>
+                    {type === 'FACTURA' && (
+                        <div className="space-y-2">
+                            <Label>Vencimiento</Label>
+                            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                        </div>
+                    )}
 
                     {type === 'FACTURA' && (
                         <div className="space-y-2">
