@@ -680,8 +680,8 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
             />
           )
         }
-      </div >
-
-      )
+      </div>
+    </div>
+  )
 }
 
