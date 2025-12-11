@@ -1,19 +1,19 @@
 {
-  "id": 137383436910,
-  "date_created": "2025-12-10T22:24:16.343-04:00",
+  "id": 137384780338,
+  "date_created": "2025-12-10T22:30:20.031-04:00",
   "date_approved": null,
-  "date_last_updated": "2025-12-10T22:24:16.343-04:00",
+  "date_last_updated": "2025-12-10T22:30:20.031-04:00",
   "date_of_expiration": null,
   "money_release_date": null,
   "money_release_status": "released",
   "operation_type": "regular_payment",
-  "issuer_id": "12446",
+  "issuer_id": "12512",
   "payment_method_id": "debvisa",
   "payment_type_id": "debit_card",
   "payment_method": {
     "id": "debvisa",
     "type": "debit_card",
-    "issuer_id": "12446",
+    "issuer_id": "12512",
     "data": {
       "routing_data": {
         "merchant_account_id": "650246617"
@@ -40,8 +40,8 @@
   "corporation_id": null,
   "charges_execution_info": {
     "internal_execution": {
-      "date": "2025-12-10T22:24:16.331-04:00",
-      "execution_id": "01KC5KJCD3WT763DCG52G2DW2T"
+      "date": "2025-12-10T22:30:20.016-04:00",
+      "execution_id": "01KC5KXFJ695MJEPAGJJ75DNY2"
     }
   },
   "payer": {
@@ -91,7 +91,7 @@
   "fee_details": [],
   "charges_details": [
     {
-      "id": "137383436910-001",
+      "id": "137384780338-001",
       "name": "mercadopago_fee",
       "type": "fee",
       "accounts": {
@@ -99,8 +99,8 @@
         "to": "mp"
       },
       "client_id": 0,
-      "date_created": "2025-12-10T22:24:16.345-04:00",
-      "last_updated": "2025-12-10T22:24:16.345-04:00",
+      "date_created": "2025-12-10T22:30:20.034-04:00",
+      "last_updated": "2025-12-10T22:30:20.034-04:00",
       "amounts": {
         "original": 1.39,
         "refunded": 0
@@ -112,7 +112,7 @@
       },
       "reserve_id": null,
       "refund_charges": [],
-      "external_charge_id": "01KC5KJCE3FMSXC8S44KK6DS47"
+      "external_charge_id": "01KC5KXFK6ZABGVC9WVKFEMEY1"
     }
   ],
   "captured": true,
@@ -122,7 +122,7 @@
   "card": {
     "id": null,
     "first_six_digits": null,
-    "last_four_digits": "***3",
+    "last_four_digits": "***0",
     "bin": null,
     "expiration_month": null,
     "expiration_year": null,
@@ -163,7 +163,7 @@
     "status": 201,
     "headers": {
       "date": [
-        "Thu, 11 Dec 2025 02:24:17 GMT"
+        "Thu, 11 Dec 2025 02:30:21 GMT"
       ],
       "content-type": [
         "application/json;charset=UTF-8"
@@ -190,13 +190,13 @@
         "max-age=0"
       ],
       "etag": [
-        "2fd62a4b28e7630fc9d63365dc8b1044"
+        "281a2fdd37a2ed8f0770145c82d0cb30"
       ],
       "x-content-type-options": [
         "nosniff"
       ],
       "x-request-id": [
-        "d697e968-46aa-4692-9ca3-7626cf71b4a6"
+        "c13f1216-db3e-4de5-b803-33dbe72ac8ce"
       ],
       "x-xss-protection": [
         "1; mode=block"

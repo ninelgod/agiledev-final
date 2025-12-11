@@ -230,18 +230,19 @@ export function AddLoanForm() {
       return
     }
 
-    if (
-      !formData.bankName ||
-      !formData.loanType ||
-      !formData.totalAmount ||
-      !formData.numberOfInstallments ||
-      !formData.installmentAmount ||
-      !formData.paymentType ||
-      (formData.paymentType !== "Fin de mes" && !formData.paymentFrequency) ||
-      !formData.startDate ||
-      !formData.endDate
-    ) {
-      setError("Por favor completa todos los campos")
+    const missingFields = []
+    if (!formData.bankName) missingFields.push("Nombre del Banco")
+    if (!formData.loanType) missingFields.push("Tipo de Préstamo")
+    if (!formData.totalAmount) missingFields.push("Monto del Préstamo")
+    if (!formData.numberOfInstallments) missingFields.push("Número de Cuotas")
+    if (!formData.installmentAmount) missingFields.push("Monto por Cuota")
+    if (!formData.paymentType) missingFields.push("Tipo de Pago")
+    if (formData.paymentType !== "Fin de mes" && !formData.paymentFrequency) missingFields.push("Frecuencia de Pago (Día/Intervalo)")
+    if (!formData.startDate) missingFields.push("Fecha de Inicio")
+    if (!formData.endDate) missingFields.push("Fecha de Finalización")
+
+    if (missingFields.length > 0) {
+      setError(`Faltan completar los siguientes campos: ${missingFields.join(", ")}`)
       setIsLoading(false)
       return
     }
