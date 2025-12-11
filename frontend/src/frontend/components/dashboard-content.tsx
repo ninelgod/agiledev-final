@@ -38,7 +38,11 @@ import {
 import { LoanPaymentDialog } from "@/frontend/components/loan-payment-dialog"
 import { InvoiceDialog } from "@/frontend/components/invoice-dialog"
 import { NotificationSettingsDialog } from "@/frontend/components/notification-settings-dialog"
+import { LoanPaymentDialog } from "@/frontend/components/loan-payment-dialog"
+import { InvoiceDialog } from "@/frontend/components/invoice-dialog"
+import { NotificationSettingsDialog } from "@/frontend/components/notification-settings-dialog"
 import { CalendarView } from "@/frontend/components/calendar-view"
+import { Invoice } from "@/frontend/types/invoice"
 
 // --- INTERFACES CORREGIDAS A CAMELCASE (Formato Prisma) ---
 interface User {
@@ -113,7 +117,9 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
 
   // Estados
   const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [installments, setInstallments] = useState<Installment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -183,6 +189,13 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
         setInstallments(instData.installments || [])
       } else {
         setInstallments([])
+      }
+
+      // Cargar Facturas
+      const invRes = await fetch(`${apiUrl}/api/invoices?userId=${userId}`, { cache: "no-store" })
+      if (invRes.ok) {
+        const invData = await invRes.json()
+        setInvoices(invData.invoices || [])
       }
 
     } catch (err) {
@@ -357,12 +370,12 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Préstamos</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Deudas</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loans.length}</div>
-              <p className="text-xs text-muted-foreground">Préstamos activos</p>
+              <div className="text-2xl font-bold">{loans.length + invoices.length}</div>
+              <p className="text-xs text-muted-foreground">Préstamos y documentos activos</p>
             </CardContent>
           </Card>
 
@@ -406,7 +419,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <CardTitle>Mis Préstamos</CardTitle>
+                  <CardTitle>Mis Deudas</CardTitle>
                   <Button variant="ghost" size="sm" onClick={() => setLoansExpanded(!loansExpanded)}>
                     {loansExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
@@ -528,7 +541,45 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
                 </div>
               )}
             </CardContent>
-          )}
+        </Card>
+
+        {/* Lista de Documentos (Facturas/Recibos) */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle>Mis Documentos</CardTitle>
+            <CardDescription>Facturas y recibos registrados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {invoices.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                No tienes documentos registrados.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {invoices.map((inv) => (
+                  <div key={inv.id} className="flex flex-col md:flex-row justify-between p-4 border rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {inv.documentType === 'FACTURA' ? <FileText className="h-4 w-4 text-purple-600" /> : <Receipt className="h-4 w-4 text-orange-600" />}
+                        <h4 className="font-semibold text-gray-900">{inv.issuerName}</h4>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border">{inv.documentType}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {inv.documentType === 'FACTURA' ? `RUC: ${inv.issuerDocument || 'N/A'}` : `Periodo: ${inv.period || 'N/A'}`}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Vence: {formatDate(inv.dueDate)}
+                      </p>
+                    </div>
+                    <div className="text-right mt-2 md:mt-0">
+                      <p className="text-xl font-bold">{formatCurrency(inv.totalAmount)}</p>
+                      <p className="text-xs text-gray-400">{inv.items ? JSON.parse(JSON.stringify(inv.items)).length : 0} items</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
 
         {/* Diálogos */}
