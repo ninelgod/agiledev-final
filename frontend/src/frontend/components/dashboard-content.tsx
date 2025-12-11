@@ -647,55 +647,41 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro de eliminar?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción borrará el préstamo y todo su historial de pagos. No se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteLoan} className="bg-red-600 hover:bg-red-700 text-white">
-              Sí, Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      {resetPasswordDialog()}
 
-      <LoanPaymentDialog
-        open={paymentDialogOpen}
-        onOpenChange={setPaymentDialogOpen}
-        loan={selectedLoanForPayment}
-        installments={selectedLoanInstallments}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
+        {resetPasswordDialog()}
 
-      <NotificationSettingsDialog
-        open={notificationSettingsOpen}
-        onOpenChange={setNotificationSettingsOpen}
-        user={user}
-        onUpdateSuccess={handleNotificationUpdate}
-      />
+        <LoanPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          loan={selectedLoanForPayment}
+          installments={selectedLoanInstallments}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
 
-      {
-        user && (
-          <InvoiceDialog
-            open={invoiceDialogOpen}
-            onOpenChange={setInvoiceDialogOpen}
-            type={invoiceType}
-            userId={user.id}
-            onSuccess={() => {
-              setSuccessMessage("Documento registrado con éxito")
-              setTimeout(() => setSuccessMessage(null), 3000)
-            }}
-          />
-        )
-      }
-    </div >
+        <NotificationSettingsDialog
+          open={notificationSettingsOpen}
+          onOpenChange={setNotificationSettingsOpen}
+          user={user}
+          onUpdateSuccess={handleNotificationUpdate}
+        />
 
-  )
+        {
+          user && (
+            <InvoiceDialog
+              open={invoiceDialogOpen}
+              onOpenChange={setInvoiceDialogOpen}
+              type={invoiceType}
+              userId={user.id}
+              onSuccess={() => {
+                setSuccessMessage("Documento registrado con éxito")
+                setTimeout(() => setSuccessMessage(null), 3000)
+              }}
+            />
+          )
+        }
+      </div >
+
+      )
 }
 
