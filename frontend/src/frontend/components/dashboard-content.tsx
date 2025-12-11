@@ -38,9 +38,7 @@ import {
 import { LoanPaymentDialog } from "@/frontend/components/loan-payment-dialog"
 import { InvoiceDialog } from "@/frontend/components/invoice-dialog"
 import { NotificationSettingsDialog } from "@/frontend/components/notification-settings-dialog"
-import { LoanPaymentDialog } from "@/frontend/components/loan-payment-dialog"
-import { InvoiceDialog } from "@/frontend/components/invoice-dialog"
-import { NotificationSettingsDialog } from "@/frontend/components/notification-settings-dialog"
+
 import { CalendarView } from "@/frontend/components/calendar-view"
 import { Invoice } from "@/frontend/types/invoice"
 
@@ -117,7 +115,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
 
   // Estados
   const [user, setUser] = useState<User | null>(null)
-  const [user, setUser] = useState<User | null>(null)
+
   const [loans, setLoans] = useState<Loan[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [installments, setInstallments] = useState<Installment[]>([])
